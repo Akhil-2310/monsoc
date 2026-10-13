@@ -1,4 +1,5 @@
 "use client";
+import { LayoutGrid, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -53,7 +54,7 @@ function Search() {
   const communities = (list: CommunityInfo[]) =>
     list.map((c) => (
       <Link key={c.id} href={`/c/${c.id}`} className="block px-4 py-3 hover:bg-panel">
-        <div className="text-sm font-semibold">◍ {c.name}</div>
+        <div className="flex items-center gap-1.5 text-sm font-semibold"><Users size={14} className="text-accent" /> {c.name}</div>
         <div className="truncate text-sm text-muted">
           {[c.description, `${c.memberCount} member${c.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
         </div>
@@ -69,7 +70,7 @@ function Search() {
         }}
         className="block w-full px-4 py-3 text-left hover:bg-panel"
       >
-        <div className="text-sm font-semibold">≋ {f.name}</div>
+        <div className="flex items-center gap-1.5 text-sm font-semibold"><LayoutGrid size={14} className="text-accent" /> {f.name}</div>
         <div className="truncate text-sm text-muted">{f.description}</div>
       </button>
     ));

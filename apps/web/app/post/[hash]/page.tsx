@@ -1,4 +1,5 @@
 "use client";
+import { Clock, ShieldCheck } from "lucide-react";
 import { use, useCallback, useEffect, useState } from "react";
 import type { Hex } from "viem";
 import type { PostView } from "@monsoc/sdk";
@@ -74,10 +75,10 @@ export default function Thread({ params }: { params: Promise<{ hash: string }> }
       {proof && (
         <div className="border-b border-line bg-panel px-4 py-3 text-xs text-muted">
           {"pending" in proof ? (
-            <span>⧗ Signed and stored by the relay. Will be anchored on Monad in the next batch (every few minutes).</span>
+            <span className="flex items-center gap-1.5"><Clock size={13} /> Signed and stored by the relay. Will be anchored on Monad in the next batch (every few minutes).</span>
           ) : (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="text-good">⛓ Anchored in batch #{proof.batchId}</span>
+              <span className="flex items-center gap-1 font-semibold text-good"><ShieldCheck size={14} /> Anchored in batch #{proof.batchId}</span>
               <span>root {proof.root.slice(0, 10)}…</span>
               <span>tx {proof.txHash.slice(0, 10)}…</span>
               <span>{proof.proof.length}-step proof</span>

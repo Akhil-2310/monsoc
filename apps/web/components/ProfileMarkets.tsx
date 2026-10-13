@@ -1,4 +1,5 @@
 "use client";
+import { TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { MarketInfo, Profile } from "@monsoc/sdk";
 import { marketsAbi } from "@monsoc/sdk";
@@ -43,7 +44,7 @@ export function ProfileMarkets({ p }: { p: Profile }) {
   return (
     <section className="border-b border-line p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-semibold">↗ Milestone markets</h3>
+        <h3 className="flex items-center gap-2 font-display font-bold"><TrendingUp size={17} className="text-accent" /> Milestone markets</h3>
         {isMe ? (
           <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm">
             <input

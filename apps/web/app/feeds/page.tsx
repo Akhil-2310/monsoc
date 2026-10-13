@@ -1,4 +1,5 @@
 "use client";
+import { LayoutGrid, Sparkles, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { feedHash, validateFeed, feedsAbi, DEFAULT_FEEDS, type FeedDefinition, type FeedInfo } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
@@ -103,14 +104,14 @@ export default function Feeds() {
           <div key={f.id} className="card flex flex-col p-4">
             <div className="flex items-start gap-2">
               <div className="flex-1">
-                <h3 className="font-semibold">{f.kind === "hosted" ? "⚡ " : "≋ "}{f.name}</h3>
+                <h3 className="flex items-center gap-1.5 font-display font-bold">{f.kind === "hosted" ? <Zap size={16} className="text-accent" /> : <LayoutGrid size={16} className="text-accent" />}{f.name}</h3>
                 <p className="text-xs text-muted">by @{f.ownerHandle ?? f.ownerFid} · v{f.version} · {f.kind === "rule" ? "rule-based" : "hosted"}</p>
               </div>
               <span className={`chip ${f.priceUsd ? "bg-warn/15 text-warn" : "bg-good/15 text-good"}`}>{f.priceUsd ? `${usd(f.priceUsd)}/mo` : "free"}</span>
             </div>
             <p className="mt-2 flex-1 text-sm text-muted">{f.description}</p>
             <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted">
-              <span className="chip bg-panel-2">✦ {pct(f.discoveryBps / 10_000)} discovery</span>
+              <span className="chip bg-coral/12 text-coral"><Sparkles size={11} /> {pct(f.discoveryBps / 10_000)} discovery</span>
               {f.priceUsd > 0 && <span className="chip bg-panel-2">{pct(f.creatorShareBps / 10_000)} to creators</span>}
               <span className="chip bg-panel-2">{f.subscribers} paying</span>
             </div>

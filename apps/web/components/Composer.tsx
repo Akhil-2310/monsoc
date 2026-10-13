@@ -6,6 +6,7 @@ import { uploadMedia, uploadsEnabled } from "@/lib/media";
 import { useSession, relay } from "@/lib/session";
 import { errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
+import { Check, FlaskConical, Hash, ImagePlus, Link as LinkIcon, Plus, X } from "lucide-react";
 import cfg from "@/monsoc.config";
 
 const VIDEO = /\.(mp4|webm|mov|m3u8)(\?|$)/i;
@@ -34,6 +35,7 @@ export function Composer({
   const [linkUrl, setLinkUrl] = useState("");
   const [canUpload, setCanUpload] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
+  const [topicsOpen, setTopicsOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export function Composer({
   if (!fid) return null;
   // topics come from the post itself: #hashtags in the text plus topics picked below
   const tags = [...new Set([...picked, ...extractTags(text)])];
+  const extraTags = tags.filter((t) => !picked.includes(t));
   const togglePick = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const pickFiles = async (files: FileList | null) => {
@@ -116,13 +119,13 @@ export function Composer({
   };
 
   return (
-    <div className="border-b border-line px-4 py-3">
+    <div className="border-b border-line px-5 py-4">
       <div className="flex gap-3">
-        <Avatar fid={fid} handle={profile?.handle} src={profile?.avatar} />
+        <Avatar fid={fid} handle={profile?.handle} src={profile?.avatar} size={42} />
         <div className="flex-1">
           <textarea
-            className="w-full resize-none bg-transparent text-[15px] outline-none placeholder:text-muted"
-            rows={parent ? 2 : 3}
+            className="w-full resize-none bg-transparent pt-2 text-[17px] leading-relaxed outline-none placeholder:text-muted"
+            rows={parent ? 2 : 2}
             maxLength={1024}
             placeholder={abTest ? "Variant A: your first hook" : placeholder}
             value={text}
@@ -137,18 +140,21 @@ export function Composer({
               onChange={(e) => setVariantB(e.target.value)}
             />
           )}
-          {!parent && (
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {TOPICS.map((t) => (
+          {!parent && (topicsOpen || tags.length > 0) && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(topicsOpen ? TOPICS : TOPICS.filter((t) => picked.includes(t.id))).map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => togglePick(t.id)}
-                  className={`chip border ${picked.includes(t.id) ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-text"}`}
+                  className={`chip border transition ${picked.includes(t.id) ? "border-transparent bg-accent text-white" : "border-line bg-panel text-muted hover:border-accent/40 hover:text-text"}`}
                 >
-                  {picked.includes(t.id) ? "✓ " : "+ "}
+                  {picked.includes(t.id) ? <Check size={11} /> : <Plus size={11} />}
                   {t.label}
                 </button>
+              ))}
+              {extraTags.map((t) => (
+                <span key={t} className="chip bg-accent-soft text-accent">#{t}</span>
               ))}
             </div>
           )}
@@ -163,11 +169,11 @@ export function Composer({
                     <img src={displayUrl(m.uri, { w: 800 })} alt="" className="max-h-64 w-full object-cover" />
                   )}
                   <button
-                    className="absolute right-1.5 top-1.5 rounded-full bg-black/70 px-2 py-0.5 text-xs text-white hover:bg-black"
+                    className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white backdrop-blur hover:bg-black"
                     onClick={() => setMedia((all) => all.filter((_, j) => j !== i))}
                     title="Remove"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 </div>
               ))}
@@ -209,45 +215,31 @@ export function Composer({
               </div>
             </div>
           )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {!parent && cfg.plugins.trials && (
-              <button className={`btn-ghost btn-sm ${trial ? "border-accent text-accent" : ""}`} onClick={() => setTrial(!trial)}>
-                ◎ Trial
-              </button>
-            )}
+          <div className="mt-3 flex min-w-0 items-center gap-0.5 border-t border-line pt-2.5">
             {!parent && (
               <>
-                <input
-                  ref={fileInput}
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  hidden
-                  onChange={(e) => pickFiles(e.target.files)}
-                />
+                <input ref={fileInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => pickFiles(e.target.files)} />
                 {canUpload && (
-                  <button
-                    className="btn-ghost btn-sm"
-                    disabled={!!uploading || media.length >= 4}
-                    onClick={() => fileInput.current?.click()}
-                    title="Upload images or videos (up to 4)"
-                  >
-                    ▲ Upload
-                  </button>
+                  <ToolButton label="Photo or video" disabled={!!uploading || media.length >= 4} onClick={() => fileInput.current?.click()}>
+                    <ImagePlus size={19} />
+                  </ToolButton>
                 )}
-                <button
-                  className={`btn-ghost btn-sm ${linkOpen ? "border-accent text-accent" : ""}`}
-                  disabled={media.length >= 4}
-                  onClick={() => setLinkOpen(!linkOpen)}
-                  title="Attach an image or video by link"
-                >
-                  🔗 Link
-                </button>
+                <ToolButton label="Attach by link" on={linkOpen} disabled={media.length >= 4} onClick={() => setLinkOpen(!linkOpen)}>
+                  <LinkIcon size={18} />
+                </ToolButton>
+                <ToolButton label="Topics" on={topicsOpen} onClick={() => setTopicsOpen(!topicsOpen)}>
+                  <Hash size={18} />
+                </ToolButton>
+                {cfg.plugins.trials && (
+                  <ToolButton label="Trial: test with non-followers first" on={trial} onClick={() => setTrial(!trial)}>
+                    <FlaskConical size={18} />
+                  </ToolButton>
+                )}
               </>
             )}
             {!parent && community === undefined && myCommunities.length > 0 && (
               <select
-                className="rounded-full border border-line bg-panel-2 px-3 py-1 text-xs"
+                className="ml-1 hidden min-w-0 max-w-[40%] truncate rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-medium text-muted sm:block"
                 value={communityId ?? ""}
                 onChange={(e) => setCommunityId(e.target.value ? Number(e.target.value) : undefined)}
               >
@@ -257,8 +249,9 @@ export function Composer({
                 ))}
               </select>
             )}
-            {tags.length > 0 && <span className="text-xs text-muted">{tags.map((t) => `#${t}`).join(" ")}</span>}
-            <button className="btn-primary ml-auto" disabled={busy || !!uploading || (!text.trim() && media.length === 0) || (abTest && !variantB.trim())} onClick={submit}>
+            <span className="flex-1" />
+            <span className={`mr-2 hidden text-xs tabular-nums sm:inline ${text.length > 900 ? "text-warn" : "text-muted"}`}>{text.length > 0 && 1024 - text.length}</span>
+            <button className="btn-primary shrink-0 px-5" disabled={busy || !!uploading || (!text.trim() && media.length === 0) || (abTest && !variantB.trim())} onClick={submit}>
               {busy ? "Signing…" : parent ? "Reply" : trial ? "Start trial" : "Post"}
             </button>
           </div>
@@ -266,5 +259,21 @@ export function Composer({
         </div>
       </div>
     </div>
+  );
+}
+
+function ToolButton({ label, on, disabled, onClick, children }: { label: string; on?: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onClick}
+      className={`rounded-full p-2 transition disabled:opacity-40 ${on ? "bg-accent-soft text-accent" : "text-accent/80 hover:bg-accent-soft hover:text-accent"}`}
+    >
+      {children}
+    </button>
   );
 }

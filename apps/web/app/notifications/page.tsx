@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { Notification } from "@monsoc/sdk";
+import { AtSign, Gem, Heart, MessageCircle, Repeat2, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { Shell, PageHeader } from "@/components/Shell";
 import { Avatar } from "@/components/Avatar";
 import { useSession, relay } from "@/lib/session";
@@ -17,7 +18,15 @@ const VERB: Record<Notification["kind"], string> = {
   back: "backed you as a scout",
   invite: "invited you to",
 };
-const ICON: Record<Notification["kind"], string> = { like: "♥", repost: "⟲", reply: "↩", mention: "@", follow: "+", back: "◆", invite: "◍" };
+const ICON: Record<Notification["kind"], [LucideIcon, string]> = {
+  like: [Heart, "text-bad"],
+  repost: [Repeat2, "text-good"],
+  reply: [MessageCircle, "text-accent"],
+  mention: [AtSign, "text-accent"],
+  follow: [UserPlus, "text-accent"],
+  back: [Gem, "text-accent"],
+  invite: [Users, "text-coral"],
+};
 
 export default function Notifications() {
   const { fid, ready } = useSession();
@@ -66,7 +75,10 @@ export default function Notifications() {
           const href = n.kind === "invite" && n.community ? `/c/${n.community.id}` : n.post ? `/post/${n.post.hash}` : `/u/${n.actor.handle ?? n.actor.fid}`;
           return (
             <Link key={n.id} href={href} className="flex gap-3 px-4 py-3 hover:bg-panel">
-              <span className="w-5 pt-2 text-center text-muted">{ICON[n.kind]}</span>
+              {(() => {
+                const [Icon, color] = ICON[n.kind];
+                return <Icon size={18} className={`mt-2 shrink-0 ${color}`} fill={n.kind === "like" ? "currentColor" : "none"} />;
+              })()}
               <Avatar fid={n.actor.fid} handle={n.actor.handle} src={n.actor.avatar} size={36} />
               <div className="min-w-0 flex-1 text-sm">
                 <p>

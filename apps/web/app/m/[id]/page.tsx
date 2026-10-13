@@ -103,7 +103,7 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
         </p>
         {EXPLORER && deployment.markets && (
           <a className="mt-2 inline-block text-accent hover:underline" href={`${EXPLORER}/address/${deployment.markets}`} target="_blank" rel="noreferrer">
-            View CreatorMarkets contract ↗
+            View CreatorMarkets contract →
           </a>
         )}
       </section>

@@ -1,4 +1,5 @@
 "use client";
+import { LayoutGrid } from "lucide-react";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import type { FeedInfo } from "@monsoc/sdk";
 import { paymentsAbi, tusdAbi } from "@monsoc/sdk";
@@ -96,7 +97,7 @@ export function FeedView({
   if (res.locked)
     return (
       <div className="m-4 card p-6 text-center">
-        <div className="text-3xl">≋</div>
+        <LayoutGrid size={30} className="mx-auto text-accent" />
         <h3 className="mt-2 text-lg font-semibold">{feed.name}</h3>
         <p className="mt-1 text-sm text-muted">{feed.description}</p>
         <p className="mt-3 text-sm">

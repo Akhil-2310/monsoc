@@ -1,4 +1,5 @@
 "use client";
+import { Logo } from "@/components/Shell";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { CommunityInfo, Profile } from "@monsoc/sdk";
@@ -108,7 +109,7 @@ export default function Onboarding() {
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
       <div className="mb-8 text-center">
-        <div className="text-4xl text-accent">◉</div>
+        <div className="flex justify-center"><Logo size={56} /></div>
         <h1 className="mt-2 text-2xl font-bold">{cfg.name}</h1>
         <p className="text-muted">{cfg.tagline}</p>
       </div>

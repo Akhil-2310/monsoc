@@ -1,4 +1,5 @@
 "use client";
+import { Logo } from "@/components/Shell";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -41,7 +42,7 @@ export default function Login() {
   return (
     <div className="mx-auto max-w-md px-4 py-12">
       <div className="mb-8 text-center">
-        <Link href="/" className="text-4xl text-accent">◉</Link>
+        <Link href="/" className="inline-flex"><Logo size={56} /></Link>
         <h1 className="mt-2 text-2xl font-bold">Log in to {cfg.name}</h1>
         <p className="text-muted">Same identity, same followers, in every app on the protocol.</p>
       </div>

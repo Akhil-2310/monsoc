@@ -14,14 +14,14 @@ export function Avatar({ fid, handle, src, size = 40 }: { fid: number; handle?: 
         src={mediaUrl(src, { w: size * 2, h: size * 2 })}
         alt=""
         onError={() => setBroken(true)}
-        className="shrink-0 rounded-full border border-line bg-panel-2 object-cover"
+        className="shrink-0 rounded-full bg-panel-2 object-cover ring-1 ring-line"
         style={{ width: size, height: size }}
       />
     );
   const h = hues[fid % hues.length]!;
   return (
     <div
-      className="flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      className="flex shrink-0 items-center justify-center rounded-full font-display font-bold text-white ring-1 ring-black/5"
       style={{
         width: size,
         height: size,

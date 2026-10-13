@@ -7,6 +7,8 @@ import { errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
 
 /** Edits the signed profile message. Saving signs a new `profile` message; the newest one wins everywhere. */
+
+export const DEFAULT_BANNER = "radial-gradient(120% 140% at 0% 0%, var(--accent) 0%, transparent 55%), radial-gradient(120% 140% at 100% 0%, var(--accent-2) 0%, transparent 55%), linear-gradient(135deg, var(--accent), var(--coral))";
 export function ProfileEditor({
   profile,
   onSaved,
@@ -49,8 +51,8 @@ export function ProfileEditor({
   return (
     <div className="border-b border-line">
       <div
-        className="h-32 bg-gradient-to-br from-accent-soft to-panel-2 bg-cover bg-center"
-        style={body.banner && !problems.some((p) => p.startsWith("banner")) ? { backgroundImage: `url("${mediaUrl(body.banner)}")` } : undefined}
+        className="h-36 bg-cover bg-center"
+        style={{ backgroundImage: body.banner && !problems.some((p) => p.startsWith("banner")) ? `url("${mediaUrl(body.banner)}")` : DEFAULT_BANNER }}
       />
       <div className="space-y-3 px-4 pb-4">
         <div className="-mt-10 rounded-full border-4 border-bg" style={{ width: 88 }}>

@@ -1,8 +1,9 @@
 "use client";
+import { Gem, Link as LinkIcon, MapPin } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { mediaUrl, type PostView, type Profile } from "@monsoc/sdk";
-import { ProfileEditor } from "@/components/ProfileEditor";
+import { ProfileEditor, DEFAULT_BANNER } from "@/components/ProfileEditor";
 import { ProfileMarkets } from "@/components/ProfileMarkets";
 import { useRouter } from "next/navigation";
 import { Shell, PageHeader } from "@/components/Shell";
@@ -61,8 +62,8 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       ) : (
       <div className="border-b border-line">
         <div
-          className="h-32 bg-gradient-to-br from-accent-soft to-panel-2 bg-cover bg-center"
-          style={p.banner ? { backgroundImage: `url("${mediaUrl(p.banner)}")` } : undefined}
+          className="h-36 bg-cover bg-center"
+          style={{ backgroundImage: p.banner ? `url("${mediaUrl(p.banner)}")` : DEFAULT_BANNER }}
         />
         <div className="px-4 pb-4">
           <div className="-mt-10 flex items-end justify-between gap-3">
@@ -104,7 +105,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold">{p.displayName ?? `@${p.handle ?? p.fid}`}</h2>
-            {p.scoutTier && <span className="chip bg-accent-soft text-accent">◆ {p.scoutTier} scout</span>}
+            {p.scoutTier && <span className="chip bg-accent-soft text-accent"><Gem size={11} /> {p.scoutTier} scout</span>}
           </div>
           {p.displayName && <p className="text-sm text-muted">@{p.handle ?? p.fid}</p>}
           {!isMe && (blocked.has(p.fid) || muted.has(p.fid)) && (
@@ -114,10 +115,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
           )}
           {p.bio && <p className="mt-2 whitespace-pre-wrap break-words text-[15px]">{p.bio}</p>}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-            {p.location && <span>⌖ {p.location}</span>}
+            {p.location && <span className="flex items-center gap-1"><MapPin size={13} /> {p.location}</span>}
             {p.url && (
               <a href={p.url} target="_blank" rel="noreferrer nofollow" className="text-accent hover:underline">
-                ↗ {p.url.replace(/^https:\/\//, "")}
+                <LinkIcon size={13} className="mr-1 inline" />{p.url.replace(/^https:\/\//, "")}
               </a>
             )}
             <span>joined {timeAgo(p.createdAt)} ago</span>

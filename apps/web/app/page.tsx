@@ -6,6 +6,7 @@ import { Shell, PageHeader } from "@/components/Shell";
 import { FeedView } from "@/components/FeedView";
 import { Composer } from "@/components/Composer";
 import { Avatar } from "@/components/Avatar";
+import { Gem, Plus, TrendingUp, UserPlus, Zap } from "lucide-react";
 import { useSession, relay } from "@/lib/session";
 import { BUILTIN_FEEDS } from "@/lib/feeds";
 import { usd } from "@/lib/format";
@@ -46,25 +47,30 @@ export default function Home() {
     <Shell aside={<HomeAside />}>
       <PageHeader title="Home" sub={feed ? `${feed.name}${feed.ownerHandle ? ` · by @${feed.ownerHandle}` : ""} · v${feed.version}` : cfg.tagline} />
       {/* one-tap feed switcher */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-line px-3 py-2">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2.5 [scrollbar-width:none]">
         {feeds?.map((f) => (
           <button key={f.id} onClick={() => pick(f.id)} className={`tab ${f.id === active ? "tab-on" : ""}`} title={f.description}>
-            {f.kind === "hosted" ? "⚡ " : ""}
+            {f.kind === "hosted" && <Zap size={13} className="mr-1 inline -translate-y-px" />}
             {f.name}
             {f.priceUsd > 0 && <span className="ml-1 text-[10px] text-warn">{usd(f.priceUsd)}</span>}
           </button>
         ))}
-        <Link href="/feeds" className="tab">+ Browse</Link>
+        <Link href="/feeds" className="tab flex items-center gap-1"><Plus size={14} /> Browse</Link>
       </div>
       {ready && !fid && (
-        <div className="m-4 card flex items-center gap-3 p-4">
-          <div className="flex-1 text-sm">
-            <b>Own your identity, audience and feed.</b>
-            <p className="text-muted">Passkey sign-up, no seed phrase, no gas. Your follows live onchain and go wherever you go.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link href="/onboarding" className="btn-primary">Get started</Link>
-            <Link href="/login" className="btn-ghost">Log in</Link>
+        <div
+          className="relative m-4 overflow-hidden rounded-3xl p-6 text-white shadow-pop"
+          style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2) 70%, var(--coral))" }}
+        >
+          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+          <h2 className="relative font-display text-2xl font-extrabold leading-tight">Your identity. Your audience. Your feed.</h2>
+          <p className="relative mt-2 max-w-md text-sm text-white/85">
+            Sign up with a passkey, no seed phrase, no gas. Your followers live onchain and come with you to every app, and you can back creators
+            before they break through.
+          </p>
+          <div className="relative mt-4 flex gap-2">
+            <Link href="/onboarding" className="btn bg-white text-[#1b1724] hover:bg-white/90">Get started</Link>
+            <Link href="/login" className="btn border border-white/40 text-white hover:bg-white/10">Log in</Link>
           </div>
         </div>
       )}
@@ -89,7 +95,7 @@ function HomeAside() {
     <div className="space-y-4">
       {cfg.plugins.markets && markets.length > 0 && (
         <div className="card p-4">
-          <h3 className="mb-3 text-sm font-semibold">↗ Live markets</h3>
+          <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><TrendingUp size={17} className="text-accent" /> Live markets</h3>
           {markets.slice(0, 3).map((m) => (
             <Link key={m.id} href={`/m/${m.id}`} className="mb-3 flex items-center gap-2 text-sm">
               <Avatar fid={m.creator?.fid ?? 0} handle={m.creator?.handle} src={m.creator?.avatar} size={28} />
@@ -104,12 +110,12 @@ function HomeAside() {
               <span className="chip bg-good/15 text-good">YES {Math.round(m.yesShare * 100)}%</span>
             </Link>
           ))}
-          <Link href="/markets" className="text-xs text-accent">All markets →</Link>
+          <Link href="/markets" className="text-xs font-semibold text-accent hover:underline">All markets →</Link>
         </div>
       )}
       {people.some((p) => p.fid !== fid && !following.has(p.fid)) && (
       <div className="card p-4">
-        <h3 className="mb-3 text-sm font-semibold">Who to follow</h3>
+        <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><UserPlus size={17} className="text-accent" /> Who to follow</h3>
         {people
           .filter((p) => p.fid !== fid && !following.has(p.fid))
           .slice(0, 5)
@@ -131,7 +137,7 @@ function HomeAside() {
       )}
       {cfg.plugins.scouts && scouts.length > 0 && (
         <div className="card p-4">
-          <h3 className="mb-3 text-sm font-semibold">Top scouts</h3>
+          <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><Gem size={17} className="text-accent" /> Top scouts</h3>
           {scouts.map((s, i) => (
             <Link key={s.fid} href={`/u/${s.handle ?? s.fid}`} className="mb-2 flex items-center gap-2 text-sm">
               <span className="w-4 text-muted">{i + 1}</span>

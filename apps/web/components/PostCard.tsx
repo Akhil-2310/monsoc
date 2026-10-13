@@ -7,6 +7,26 @@ import { paymentsAbi, tusdAbi, mediaUrl } from "@monsoc/sdk";
 import { useSession, deployment } from "@/lib/session";
 import { timeAgo, errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
+import {
+  Ban,
+  Check,
+  Clock,
+  Coins,
+  Eye,
+  Flag,
+  FlaskConical,
+  Gem,
+  Heart,
+  MessageCircle,
+  MoreHorizontal,
+  Repeat2,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  TrendingUp,
+  Users,
+  VolumeX,
+} from "lucide-react";
 import { useCreatorMarket, useMarket } from "@/lib/useMarkets";
 import { MarketCard } from "./MarketCard";
 import cfg from "@/monsoc.config";
@@ -44,10 +64,10 @@ function useViewTracker(post: PostView, feedId: number) {
 }
 
 const LABEL_STYLE: Record<string, string> = {
-  spam: "bg-bad/15 text-bad",
-  scam: "bg-bad/15 text-bad",
-  "engagement-bait": "bg-warn/15 text-warn",
-  giveaway: "bg-warn/15 text-warn",
+  spam: "bg-bad/12 text-bad",
+  scam: "bg-bad/12 text-bad",
+  "engagement-bait": "bg-warn/12 text-warn",
+  giveaway: "bg-warn/12 text-warn",
 };
 
 function RichText({ text }: { text: string }) {
@@ -163,65 +183,69 @@ export function PostCard({
       </div>
     );
 
+  const action = "flex items-center gap-1.5 rounded-full px-2 py-1 transition disabled:opacity-50";
   return (
-    <article ref={ref} className={`border-b border-line px-4 py-3 ${compact ? "" : "hover:bg-panel/60"}`}>
+    <article ref={ref} className={`border-b border-line px-5 py-4 transition ${compact ? "" : "hover:bg-panel-2/40"}`}>
       {(reason === "discovery" || reason === "trial" || post.trial) && (
-        <div className="mb-1.5 flex items-center gap-2 pl-12 text-[11px] text-muted">
+        <div className="mb-2 flex items-center gap-2 pl-[52px] text-[11px]">
           {reason === "trial" || post.trial?.status === "testing" ? (
-            <span className="chip bg-accent-soft text-accent">◎ Trial · shown to non-followers first</span>
+            <span className="chip bg-accent-soft text-accent"><FlaskConical size={12} /> Trial · shown to non-followers first</span>
           ) : post.trial?.status === "released" ? (
-            <span className="chip bg-good/15 text-good">✓ Released from trial</span>
+            <span className="chip bg-good/12 text-good"><Check size={12} /> Released from trial</span>
           ) : (
-            <span className="chip bg-panel-2 text-muted">✦ Discovery · someone you don't follow</span>
+            <span className="chip bg-coral/12 text-coral"><Sparkles size={12} /> Discovery · someone you don't follow</span>
           )}
-          {post.trial?.variant && <span className="chip bg-panel-2">variant {post.trial.variant}</span>}
+          {post.trial?.variant && <span className="chip bg-panel-2 text-muted">variant {post.trial.variant}</span>}
         </div>
       )}
       <div className="flex gap-3">
-        <Link href={`/u/${post.handle ?? post.fid}`}>
-          <Avatar fid={post.fid} handle={post.handle} src={post.avatar} />
+        <Link href={`/u/${post.handle ?? post.fid}`} className="shrink-0">
+          <Avatar fid={post.fid} handle={post.handle} src={post.avatar} size={42} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-sm">
-            <Link href={`/u/${post.handle ?? post.fid}`} className="min-w-0 truncate hover:underline">
+          <div className="flex items-center gap-1.5 text-sm">
+            <Link href={`/u/${post.handle ?? post.fid}`} className="min-w-0 truncate">
               {post.displayName ? (
                 <>
-                  <span className="font-semibold">{post.displayName}</span> <span className="text-muted">@{post.handle ?? post.fid}</span>
+                  <span className="font-semibold hover:underline">{post.displayName}</span> <span className="text-muted">@{post.handle ?? post.fid}</span>
                 </>
               ) : (
-                <span className="font-semibold">@{post.handle ?? post.fid}</span>
+                <span className="font-semibold hover:underline">@{post.handle ?? post.fid}</span>
               )}
             </Link>
-            <span className="text-muted">· {timeAgo(post.timestamp)}</span>
+            <span className="shrink-0 text-muted">· {timeAgo(post.timestamp)}</span>
             {post.community !== null && (
-              <Link href={`/c/${post.community}`} className="chip bg-panel-2 text-muted hover:text-text">
-                community #{post.community}
+              <Link href={`/c/${post.community}`} className="chip shrink-0 bg-panel-2 text-muted hover:text-text">
+                <Users size={11} /> community
               </Link>
             )}
-            <span className="ml-auto flex items-center gap-2">
+            <span className="ml-auto flex shrink-0 items-center gap-1">
               {isStranger && fid && (
-                <button className="text-xs text-accent hover:underline" onClick={() => setFollow(post.fid, true).catch((e) => setErr(errMsg(e)))}>
+                <button
+                  className="rounded-full border border-accent/30 px-2.5 py-0.5 text-xs font-semibold text-accent transition hover:bg-accent-soft"
+                  onClick={() => setFollow(post.fid, true).catch((e) => setErr(errMsg(e)))}
+                >
                   Follow
                 </button>
               )}
               {fid && (
                 <span className="relative">
-                  <button className="rounded-full px-1.5 text-muted hover:bg-panel-2 hover:text-text" onClick={() => setMenu(!menu)} aria-label="More">
-                    ⋯
+                  <button className="rounded-full p-1 text-muted transition hover:bg-panel-2 hover:text-text" onClick={() => setMenu(!menu)} aria-label="More">
+                    <MoreHorizontal size={18} />
                   </button>
                   {menu && (
-                    <div className="absolute right-0 top-6 z-20 w-44 overflow-hidden rounded-xl border border-line bg-panel shadow-xl" onMouseLeave={() => setMenu(false)}>
+                    <div className="absolute right-0 top-8 z-20 w-48 animate-pop overflow-hidden rounded-2xl border border-line bg-panel p-1 shadow-pop" onMouseLeave={() => setMenu(false)}>
                       {isOwn ? (
-                        <button className="block w-full px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={remove}>
-                          Delete post
+                        <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={remove}>
+                          <Trash2 size={15} /> Delete post
                         </button>
                       ) : (
                         <>
-                          <button className="block w-full px-3 py-2 text-left text-sm hover:bg-panel-2" onClick={() => relate("mute")}>
-                            Mute @{post.handle ?? post.fid}
+                          <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-panel-2" onClick={() => relate("mute")}>
+                            <VolumeX size={15} className="text-muted" /> Mute @{post.handle ?? post.fid}
                           </button>
-                          <button className="block w-full px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={() => relate("block")}>
-                            Block @{post.handle ?? post.fid}
+                          <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={() => relate("block")}>
+                            <Ban size={15} /> Block @{post.handle ?? post.fid}
                           </button>
                         </>
                       )}
@@ -235,22 +259,21 @@ export function PostCard({
           {market && cfg.plugins.markets && (
             <Link
               href={`/m/${market.id}`}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-[11px] text-accent hover:bg-accent/20"
+              className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent transition hover:bg-accent/20"
               title="A live milestone market on this creator"
             >
-              <span>↗ Market</span>
-              <span className="text-muted">·</span>
-              <span>
+              <TrendingUp size={12} />
+              <span>Market</span>
+              <span className="font-normal text-muted">
                 {market.counted}/{market.target} followers
               </span>
-              <span className="text-muted">·</span>
               <span className="text-good">YES {Math.round(market.yesShare * 100)}%</span>
             </Link>
           )}
           {post.labels.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="mt-1.5 flex flex-wrap gap-1">
               {post.labels.map((l) => (
-                <span key={l} className={`chip ${LABEL_STYLE[l] ?? "bg-panel-2 text-muted"}`}>⚑ {l}</span>
+                <span key={l} className={`chip ${LABEL_STYLE[l] ?? "bg-panel-2 text-muted"}`}><Flag size={10} /> {l}</span>
               ))}
             </div>
           )}
@@ -265,7 +288,7 @@ export function PostCard({
                 <RichText text={post.text} />
               </p>
               {post.media && post.media.length > 0 && (
-                <div className={`mt-2 grid gap-1.5 overflow-hidden rounded-xl ${post.media.length > 1 ? "grid-cols-2" : ""}`}>
+                <div className={`mt-3 grid gap-1.5 overflow-hidden rounded-2xl ${post.media.length > 1 ? "grid-cols-2" : ""}`}>
                   {post.media.map((m) =>
                     m.kind === "video" ? (
                       <video
@@ -274,7 +297,7 @@ export function PostCard({
                         controls
                         playsInline
                         preload="metadata"
-                        className="max-h-[520px] w-full rounded-xl border border-line bg-black"
+                        className="max-h-[520px] w-full rounded-2xl border border-line bg-black"
                         style={m.width && m.height ? { aspectRatio: `${m.width} / ${m.height}` } : undefined}
                         onClick={(e) => e.preventDefault()}
                       />
@@ -285,7 +308,7 @@ export function PostCard({
                         src={mediaUrl(m.uri, { w: post.media!.length > 1 ? 600 : 1200 })}
                         alt=""
                         loading="lazy"
-                        className={`w-full rounded-xl border border-line object-cover ${post.media!.length > 1 ? "aspect-square" : "max-h-[520px]"}`}
+                        className={`w-full rounded-2xl border border-line object-cover ${post.media!.length > 1 ? "aspect-square" : "max-h-[520px]"}`}
                       />
                     ),
                   )}
@@ -295,31 +318,58 @@ export function PostCard({
           )}
 
           {post.market && cfg.plugins.markets && (
-            <div className="mt-2">
+            <div className="mt-3">
               {attached ? <MarketCard m={attached} /> : <div className="h-24 animate-pulse rounded-2xl bg-panel-2" />}
             </div>
           )}
-          <div className="mt-2 flex items-center gap-5 text-[13px] text-muted">
-            <Link href={`/post/${post.hash}`} className="hover:text-text">↩ {stats.replies}</Link>
-            <button disabled={!fid || repostHash === PENDING} onClick={toggleRepost} title={repostHash ? "Undo repost" : "Repost"} className={`hover:text-good ${repostHash ? "text-good" : ""}`}>⟲ {stats.reposts}</button>
-            <button disabled={!fid || likeHash === PENDING} onClick={toggleLike} title={likeHash ? "Unlike" : "Like"} className={`hover:text-bad ${likeHash ? "text-bad" : ""}`}>{likeHash ? "♥" : "♡"} {stats.likes}</button>
+          <div className="-ml-2 mt-2 flex items-center gap-1 text-[13px] text-muted">
+            <Link href={`/post/${post.hash}`} className={`${action} hover:bg-accent-soft hover:text-accent`} title="Reply">
+              <MessageCircle size={17} /> {stats.replies > 0 && stats.replies}
+            </Link>
+            <button
+              disabled={!fid || repostHash === PENDING}
+              onClick={toggleRepost}
+              title={repostHash ? "Undo repost" : "Repost"}
+              className={`${action} hover:bg-good/12 hover:text-good ${repostHash ? "text-good" : ""}`}
+            >
+              <Repeat2 size={18} /> {stats.reposts > 0 && stats.reposts}
+            </button>
+            <button
+              disabled={!fid || likeHash === PENDING}
+              onClick={toggleLike}
+              title={likeHash ? "Unlike" : "Like"}
+              className={`${action} hover:bg-bad/12 hover:text-bad ${likeHash ? "text-bad" : ""}`}
+            >
+              <Heart size={17} fill={likeHash ? "currentColor" : "none"} /> {stats.likes > 0 && stats.likes}
+            </button>
             {cfg.plugins.scouts && !isOwn && (isStranger || post.trial) && (
               <button
                 disabled={!fid || backed}
                 onClick={back}
                 title="Back this creator early. Your scout score rises as they grow."
-                className={`hover:text-accent ${backed ? "text-accent" : ""}`}
+                className={`${action} hover:bg-accent-soft hover:text-accent ${backed ? "text-accent" : ""}`}
               >
-                ◆ {backed ? "Backed" : "Back"} {stats.backs > 0 && stats.backs}
+                <Gem size={16} fill={backed ? "currentColor" : "none"} /> {backed ? "Backed" : "Back"} {stats.backs > 0 && stats.backs}
               </button>
             )}
             {cfg.plugins.tipping && !isOwn && fid && (
-              <button onClick={tip} className="hover:text-warn" title="Tip $1 in tUSD">$ tip</button>
+              <button onClick={tip} className={`${action} hover:bg-warn/12 hover:text-warn`} title="Tip $1 in tUSD">
+                <Coins size={16} /> Tip
+              </button>
             )}
             <span className="ml-auto flex items-center gap-2 text-[11px]">
-              {stats.views > 0 && <span>{stats.views} views</span>}
-              <Link href={`/post/${post.hash}`} title={post.anchored ? "Anchored on Monad: provably unaltered" : "Waiting for the next anchor batch"}>
-                {post.anchored ? <span className="text-good">⛓ anchored</span> : <span>⧗ pending</span>}
+              {stats.views > 0 && (
+                <span className="flex items-center gap-1">
+                  <Eye size={13} /> {stats.views}
+                </span>
+              )}
+              <Link
+                href={`/post/${post.hash}`}
+                className={`flex items-center gap-1 ${post.anchored ? "text-good" : ""}`}
+                title={post.anchored ? "Anchored on Monad: provably unaltered" : "Waiting for the next anchor batch"}
+              >
+                {post.anchored ? <ShieldCheck size={13} /> : <Clock size={13} />}
+                {post.anchored ? "onchain" : "pending"}
               </Link>
             </span>
           </div>

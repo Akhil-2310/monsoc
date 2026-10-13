@@ -36,9 +36,9 @@ export default function Trials() {
   return (
     <Shell>
       <PageHeader title="Trial posts & reels" sub="Test with strangers first. Release to followers when it works." />
-      <Composer placeholder="Draft a trial: add #topics, toggle ◎ Trial, optionally A/B two hooks" onPosted={load} />
+      <Composer placeholder="Draft a trial: pick a topic, tap the flask, optionally A/B two hooks" onPosted={load} />
       {err && <p className="p-4 text-sm text-bad">{err}</p>}
-      {trials?.length === 0 && <p className="p-8 text-center text-sm text-muted">No trials yet. Toggle ◎ Trial in the composer.</p>}
+      {trials?.length === 0 && <p className="p-8 text-center text-sm text-muted">No trials yet. Tap the flask icon in the composer to start one.</p>}
       <div className="space-y-4 p-4">
         {trials?.map((t) => {
           const best = [...t.variants].sort((a, b) => b.engagementRate - a.engagementRate)[0]!;
@@ -46,7 +46,7 @@ export default function Trials() {
             <div key={t.hash} className="card p-4">
               <div className="flex items-center gap-2">
                 <span className={`chip ${t.status === "released" ? "bg-good/15 text-good" : t.status === "dropped" ? "bg-bad/15 text-bad" : "bg-accent-soft text-accent"}`}>
-                  {t.status === "testing" ? "◎ testing" : t.status}
+                  {t.status === "testing" ? "testing" : t.status}
                 </span>
                 {t.variants.length > 1 && <span className="chip bg-panel-2 text-muted">A/B</span>}
                 {t.autoRelease && t.status === "testing" && (
