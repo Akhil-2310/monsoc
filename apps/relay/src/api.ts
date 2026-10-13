@@ -6,6 +6,7 @@ import {
   paymentsAbi,
   forwarderAbi,
   signupAbi,
+  appKeysAbi,
   NATIVE,
   type CommunityInfo,
   type FeedInfo,
@@ -17,7 +18,7 @@ import { deployment, publicClient, relayAccount } from "./chain";
 import { bus, ingest, RejectError } from "./messages";
 import { profile, profiles, queryPosts, postsByHash, handleOf, defaultLabelers } from "./views";
 import { proofFor, batchHashes } from "./anchor";
-import { forward, signup, faucet } from "./sponsor";
+import { forward, signup, faucet, addKey } from "./sponsor";
 import { trialResults, scoutScoresFor, currentEpoch } from "./jobs";
 
 export const app = new Hono();
@@ -59,6 +60,16 @@ app.post("/v1/sponsor/signup", async (c) => {
 app.post("/v1/sponsor/forward", async (c) => {
   const { request } = await c.req.json();
   return c.json(await forward(request));
+});
+app.post("/v1/sponsor/add-key", async (c) => c.json(await addKey(await c.req.json())));
+app.get("/v1/sponsor/key-nonce/:address", async (c) => {
+  const nonce = await publicClient.readContract({
+    address: deployment.appKeys,
+    abi: appKeysAbi,
+    functionName: "nonces",
+    args: [c.req.param("address") as Address],
+  });
+  return c.json({ nonce: nonce.toString() });
 });
 app.get("/v1/sponsor/nonce/:address", async (c) => {
   const nonce = await publicClient.readContract({
@@ -286,7 +297,7 @@ function toFeed(r: FeedRow): FeedInfo {
 
 const FEED_SELECT = `SELECT f.*, (SELECT COUNT(*) FROM subscriptions s WHERE s.feed_id = f.id AND s.until > ${"?"}) AS subs FROM feeds f`;
 
-app.get("/v1/feeds", (c) => c.json(all<FeedRow>(`${FEED_SELECT} WHERE f.active = 1 ORDER BY subs DESC, f.id`, Date.now()).map(toFeed)));
+app.get("/v1/feeds", (c) => c.json(all<FeedRow>(`${FEED_SELECT} WHERE f.active = 1 ORDER BY (f.price_usd > 0), f.id`, Date.now()).map(toFeed)));
 app.get("/v1/feeds/:id", (c) => {
   const r = get<FeedRow>(`${FEED_SELECT} WHERE f.id = ?`, Date.now(), Number(c.req.param("id")));
   if (!r) return c.json({ error: "not found" }, 404);

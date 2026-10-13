@@ -100,6 +100,12 @@ export class RelayClient {
   signupNonce(address: Address) {
     return this.req<{ nonce: string }>(`/v1/sponsor/signup-nonce/${address}`).then((r) => BigInt(r.nonce));
   }
+  addKey(p: { fid: number; keyType: number; key: Hex; scope: number; expiry: bigint; clientFid: bigint; deadline: bigint; signature: Hex }) {
+    return this.post<{ txHash: Hex }>("/v1/sponsor/add-key", p);
+  }
+  keyNonce(custody: Address) {
+    return this.req<{ nonce: string }>(`/v1/sponsor/key-nonce/${custody}`).then((r) => BigInt(r.nonce));
+  }
   faucet(address: Address) {
     return this.post<{ txHash: Hex }>("/v1/faucet", { address });
   }

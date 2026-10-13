@@ -72,13 +72,16 @@ export async function isMember(community: number, fid: number): Promise<boolean>
   });
 }
 
-const rate = new Map<number, { minute: number; count: number }>();
-function rateLimit(fid: number) {
+const rate = new Map<string, { minute: number; count: number }>();
+/** Separate buckets: passive feed views shouldn't eat into the posting budget. */
+function rateLimit(fid: number, type: string) {
   const minute = Math.floor(Date.now() / 60_000);
   const rep = get<{ rep: number }>("SELECT rep FROM reputation WHERE fid = ?", fid)?.rep ?? 0;
-  const limit = Math.round(config.messageRatePerMinute * (1 + 2 * rep));
-  const cur = rate.get(fid);
-  if (!cur || cur.minute !== minute) rate.set(fid, { minute, count: 1 });
+  const base = type === "view" ? config.messageRatePerMinute * 6 : config.messageRatePerMinute;
+  const limit = Math.round(base * (1 + 2 * rep));
+  const key = `${fid}:${type === "view" ? "view" : "msg"}`;
+  const cur = rate.get(key);
+  if (!cur || cur.minute !== minute) rate.set(key, { minute, count: 1 });
   else if (++cur.count > limit) reject("rate limited");
 }
 
@@ -109,7 +112,7 @@ export async function ingest(msg: SignedMessage, opts: IngestOpts = {}): Promise
   }
   const clash = get("SELECT 1 FROM messages WHERE fid = ? AND seq = ? AND hash != ?", d.fid, d.seq, msg.hash);
   if (clash) reject("sequence number already used");
-  if (opts.source === "client") rateLimit(d.fid);
+  if (opts.source === "client") rateLimit(d.fid, d.type);
 
   await validateBody(msg);
 

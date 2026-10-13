@@ -89,6 +89,13 @@ describe("feed engine", () => {
     expect(ranked[0]!.post.trial!.variant).toBe(trialVariantFor(42, "g1"));
   });
 
+  it("never labels followed authors as discovery in topic feeds", () => {
+    const posts = [post({ fid: 2, tags: ["ai"] }), post({ fid: 3, tags: ["ai"] }), post({ fid: 9, tags: ["ai"] })];
+    const ranked = rankFeed(DEFAULT_FEEDS.ai!, posts, { viewerFid: viewer, following });
+    for (const r of ranked) if (following.has(r.post.fid)) expect(r.reason).toBe("network");
+    expect(ranked.find((r) => r.post.fid === 9)?.reason).toBe("discovery");
+  });
+
   it("applies filters and labels", () => {
     const def: FeedDefinition = { ...DEFAULT_FEEDS.noBait! };
     const bait = post({ fid: 2, labels: ["engagement-bait"] });

@@ -171,7 +171,7 @@ export function rankFeed(def: FeedDefinition, candidates: PostView[], ctx: RankC
 
   // Topic-only feeds: everything is non-followed, so carve discovery from new/small creators instead.
   if (!def.sources.following && discovery.length < limit * def.discovery) {
-    const small = main.filter((i) => i.post.authorFollowers < 100);
+    const small = main.filter((i) => i.reason === "source" && i.post.authorFollowers < 100);
     for (const i of small.slice(0, Math.ceil(limit * def.discovery) - discovery.length)) {
       main.splice(main.indexOf(i), 1);
       discovery.push({ ...i, reason: "discovery" });

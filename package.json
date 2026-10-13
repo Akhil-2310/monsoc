@@ -14,5 +14,8 @@
     "web": "pnpm --filter @monsoc/web dev",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "5.8"
   }
 }

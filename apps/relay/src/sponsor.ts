@@ -174,6 +174,30 @@ export async function signup(params: SignupParams, signature: Hex) {
   return { fid, txHash: result!.hash };
 }
 
+/** New device: the custody signs AddKey (EIP-712, EOA or ERC-1271) and the relay submits it. */
+export async function addKey(p: {
+  fid: number;
+  keyType: number;
+  key: Hex;
+  scope: number;
+  expiry: string | number;
+  clientFid: string | number;
+  deadline: string | number;
+  signature: Hex;
+}) {
+  try {
+    const { hash } = await send({
+      address: deployment.appKeys,
+      abi: appKeysAbi as Abi,
+      functionName: "addFor",
+      args: [BigInt(p.fid), p.keyType, p.key, p.scope, BigInt(p.expiry), BigInt(p.clientFid), BigInt(p.deadline), p.signature],
+    });
+    return { txHash: hash };
+  } catch (e) {
+    reject(revertReason(e, appKeysAbi as Abi));
+  }
+}
+
 const faucetLog = new Map<string, number>();
 
 /** Testnet faucet: tUSD for subscriptions/memberships, plus a little MON on local chains. */

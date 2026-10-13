@@ -273,7 +273,13 @@ export async function processPayouts() {
         start, end, start, end, start, end,
       ).map((r) => ({ subscriberFid: r.fid, feedId: r.feed_id, creatorFid: r.creator, views: r.views, likes: r.likes, replies: r.replies }));
       const owners = new Map(all<{ id: number; owner_fid: number }>("SELECT id, owner_fid FROM feeds").map((f) => [f.id, f.owner_fid]));
-      const alloc = allocatePayouts(payments, engagement, { reputationOf: (f) => reps.get(f) ?? 0, feedOwnerOf: (id) => owners.get(id) ?? 0 });
+      // A paying subscriber only routes their own money, so new accounts count fully here; reputation
+      // weighting is for free signals (discovery, scouts). Self-pay and feed-owner views are excluded.
+      const alloc = allocatePayouts(payments, engagement, {
+        reputationOf: (f) => reps.get(f) ?? 0,
+        minReputation: 0,
+        feedOwnerOf: (id) => owners.get(id) ?? 0,
+      });
       const total = alloc.reduce((a, b) => a + b.amount, 0n);
       let root: Hex = keccak256(toBytes(`empty:${e}:${token}`));
       let tree: ReturnType<typeof payoutTree> | null = null;

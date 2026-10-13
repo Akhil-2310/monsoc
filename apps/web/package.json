@@ -1,0 +1,28 @@
+{
+  "name": "@monsoc/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monsoc/sdk": "workspace:*",
+    "next": "15",
+    "react": "19",
+    "react-dom": "19",
+    "viem": "^2.57.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4",
+    "@types/node": "^26.6.5",
+    "@types/react": "19",
+    "@types/react-dom": "19",
+    "postcss": "^8.5.30",
+    "tailwindcss": "4",
+    "typescript": "^5.8.3"
+  }
+}

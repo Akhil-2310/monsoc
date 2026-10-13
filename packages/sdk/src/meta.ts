@@ -119,3 +119,31 @@ export const Scopes = {
 } as const;
 
 export const KeyTypes = { SECP256K1: 1, ED25519: 2, P256: 3, X25519: 4 } as const;
+
+// ------------------------------------------------------------------ add app key (new device)
+
+export const addKeyTypes = {
+  AddKey: [
+    { name: "fid", type: "uint256" },
+    { name: "keyType", type: "uint8" },
+    { name: "key", type: "bytes" },
+    { name: "scope", type: "uint32" },
+    { name: "expiry", type: "uint64" },
+    { name: "clientFid", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+} as const;
+
+export function addKeyTypedData(
+  chainId: number,
+  appKeys: Address,
+  m: { fid: bigint; keyType: number; key: Hex; scope: number; expiry: bigint; clientFid: bigint; nonce: bigint; deadline: bigint },
+) {
+  return {
+    domain: { name: "MonSocAppKeys", version: "1", chainId, verifyingContract: appKeys } as TypedDataDomain,
+    types: addKeyTypes,
+    primaryType: "AddKey" as const,
+    message: m,
+  };
+}
