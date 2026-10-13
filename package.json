@@ -1,0 +1,18 @@
+{
+  "name": "monsoc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test",
+    "chain": "anvil --port 8546",
+    "deploy:local": "cd contracts && DEPLOYER_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8546 --broadcast && cd .. && pnpm gen",
+    "deploy:testnet": "cd contracts && forge script script/Deploy.s.sol --rpc-url $MONAD_RPC_URL --broadcast && cd .. && pnpm gen",
+    "gen": "node scripts/gen-sdk.mjs",
+    "relay": "pnpm --filter @monsoc/relay dev",
+    "seed": "pnpm --filter @monsoc/relay seed",
+    "web": "pnpm --filter @monsoc/web dev",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}
