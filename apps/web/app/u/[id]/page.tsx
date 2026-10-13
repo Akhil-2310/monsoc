@@ -59,7 +59,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             </div>
           </div>
           {isMe ? (
-            <button className="btn-ghost btn-sm" onClick={logout}>Sign out</button>
+            <div className="flex gap-2">
+              <Link href="/wallet" className="btn-ghost btn-sm">Wallet & keys</Link>
+              <button className="btn-ghost btn-sm text-bad" onClick={() => { logout(); location.href = "/"; }}>Log out</button>
+            </div>
           ) : (
             fid && (
               <button

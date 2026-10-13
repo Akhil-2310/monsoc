@@ -60,7 +60,10 @@ export default function Home() {
             <b>Own your identity, audience and feed.</b>
             <p className="text-muted">Passkey sign-up, no seed phrase, no gas. Your follows live onchain and go wherever you go.</p>
           </div>
-          <Link href="/onboarding" className="btn-primary">Get started</Link>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link href="/onboarding" className="btn-primary">Get started</Link>
+            <Link href="/login" className="btn-ghost">Log in</Link>
+          </div>
         </div>
       )}
       <Composer onPosted={() => setReload((r) => r + 1)} />

@@ -139,6 +139,9 @@ export default function Onboarding() {
               </button>
             </div>
           ))}
+          <p className="mt-3 text-center text-sm text-muted">
+            Already have an account? <a href="/login" className="text-accent hover:underline">Log in</a>
+          </p>
           <p className="mt-3 text-[11px] text-muted">
             Your passkey derives your account on this device (via Mera). Nothing is stored on a server, and the same passkey restores your account on
             any device it syncs to.

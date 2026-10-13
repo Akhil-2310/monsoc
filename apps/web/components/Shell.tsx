@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSession } from "@/lib/session";
 import { Avatar } from "./Avatar";
 import cfg from "@/monsoc.config";
@@ -17,8 +17,9 @@ const NAV = [
 
 export function Shell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   const path = usePathname();
-  const { fid, profile, ready } = useSession();
+  const { fid, profile } = useSession();
   const items = NAV.filter((n) => !n.plugin || cfg.plugins[n.plugin]);
+  const profileHref = fid ? `/u/${profile?.handle ?? fid}` : "/login";
 
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl">
@@ -31,18 +32,13 @@ export function Shell({ children, aside }: { children: ReactNode; aside?: ReactN
             <span className="w-4 text-center">{n.icon}</span> {n.label}
           </Link>
         ))}
+        {fid && (
+          <Link href={profileHref} className={`tab flex items-center gap-3 text-[15px] ${path === profileHref ? "tab-on" : ""}`}>
+            <span className="w-4 text-center">☺</span> Profile
+          </Link>
+        )}
         <div className="mt-auto">
-          {ready && fid ? (
-            <Link href={`/u/${profile?.handle ?? fid}`} className="flex items-center gap-2 rounded-xl p-2 hover:bg-panel">
-              <Avatar fid={fid} handle={profile?.handle} size={32} />
-              <div className="min-w-0 text-sm">
-                <div className="truncate font-semibold">@{profile?.handle ?? fid}</div>
-                <div className="text-xs text-muted">fid {fid}{profile?.scoutTier ? ` · ${profile.scoutTier} scout` : ""}</div>
-              </div>
-            </Link>
-          ) : (
-            ready && <Link href="/onboarding" className="btn-primary w-full">Sign up</Link>
-          )}
+          <AccountMenu />
         </div>
       </nav>
 
@@ -56,6 +52,10 @@ export function Shell({ children, aside }: { children: ReactNode; aside?: ReactN
             {n.label}
           </Link>
         ))}
+        <Link href={profileHref} className={`flex flex-col items-center px-2 text-[10px] ${path === profileHref ? "text-accent" : "text-muted"}`}>
+          <span className="text-lg leading-none">☺</span>
+          {fid ? "Profile" : "Log in"}
+        </Link>
       </nav>
     </div>
   );
@@ -70,5 +70,63 @@ export function PageHeader({ title, sub, right }: { title: string; sub?: string;
       </div>
       <div className="ml-auto">{right}</div>
     </header>
+  );
+}
+
+/** Signed in: profile card that opens Profile / Wallet / Log out. Signed out: Sign up + Log in. */
+function AccountMenu() {
+  const { fid, profile, ready, logout } = useSession();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  if (!ready) return null;
+  if (!fid)
+    return (
+      <div className="space-y-2">
+        <Link href="/onboarding" className="btn-primary w-full">Sign up</Link>
+        <Link href="/login" className="btn-ghost w-full">Log in</Link>
+      </div>
+    );
+
+  const handle = profile?.handle ?? String(fid);
+  return (
+    <div ref={ref} className="relative">
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-xl border border-line bg-panel shadow-xl">
+          <Link href={`/u/${handle}`} className="block px-4 py-2.5 text-sm hover:bg-panel-2" onClick={() => setOpen(false)}>
+            View profile
+          </Link>
+          <Link href="/wallet" className="block px-4 py-2.5 text-sm hover:bg-panel-2" onClick={() => setOpen(false)}>
+            Wallet & keys
+          </Link>
+          <button
+            className="block w-full border-t border-line px-4 py-2.5 text-left text-sm text-bad hover:bg-panel-2"
+            onClick={() => {
+              setOpen(false);
+              logout();
+              router.push("/");
+            }}
+          >
+            Log out @{handle}
+          </button>
+        </div>
+      )}
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-panel">
+        <Avatar fid={fid} handle={profile?.handle} size={32} />
+        <div className="min-w-0 flex-1 text-sm">
+          <div className="truncate font-semibold">@{handle}</div>
+          <div className="text-xs text-muted">fid {fid}{profile?.scoutTier ? ` · ${profile.scoutTier} scout` : ""}</div>
+        </div>
+        <span className="text-muted">⋯</span>
+      </button>
+    </div>
   );
 }
