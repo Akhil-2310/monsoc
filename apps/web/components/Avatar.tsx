@@ -11,7 +11,7 @@ export function Avatar({ fid, handle, src, size = 40 }: { fid: number; handle?: 
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={mediaUrl(src)}
+        src={mediaUrl(src, { w: size * 2, h: size * 2 })}
         alt=""
         onError={() => setBroken(true)}
         className="shrink-0 rounded-full border border-line bg-panel-2 object-cover"

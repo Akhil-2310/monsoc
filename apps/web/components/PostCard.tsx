@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { PostView, RankReason } from "@monsoc/sdk";
-import { paymentsAbi, tusdAbi } from "@monsoc/sdk";
+import { paymentsAbi, tusdAbi, mediaUrl } from "@monsoc/sdk";
 import { useSession, deployment } from "@/lib/session";
 import { timeAgo, errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
@@ -185,15 +185,33 @@ export function PostCard({
               <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
                 <RichText text={post.text} />
               </p>
-              {post.media?.map((m) => {
-                const src = m.uri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${m.uri.slice(7)}` : m.uri;
-                return m.kind === "video" ? (
-                  <video key={m.uri} src={src} controls playsInline preload="metadata" className="mt-2 max-h-[480px] w-full rounded-xl border border-line bg-black" onClick={(e) => e.preventDefault()} />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={m.uri} src={src} alt="" loading="lazy" className="mt-2 max-h-[480px] w-full rounded-xl border border-line object-cover" />
-                );
-              })}
+              {post.media && post.media.length > 0 && (
+                <div className={`mt-2 grid gap-1.5 overflow-hidden rounded-xl ${post.media.length > 1 ? "grid-cols-2" : ""}`}>
+                  {post.media.map((m) =>
+                    m.kind === "video" ? (
+                      <video
+                        key={m.uri}
+                        src={mediaUrl(m.uri)}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="max-h-[520px] w-full rounded-xl border border-line bg-black"
+                        style={m.width && m.height ? { aspectRatio: `${m.width} / ${m.height}` } : undefined}
+                        onClick={(e) => e.preventDefault()}
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={m.uri}
+                        src={mediaUrl(m.uri, { w: post.media!.length > 1 ? 600 : 1200 })}
+                        alt=""
+                        loading="lazy"
+                        className={`w-full rounded-xl border border-line object-cover ${post.media!.length > 1 ? "aspect-square" : "max-h-[520px]"}`}
+                      />
+                    ),
+                  )}
+                </div>
+              )}
             </Link>
           )}
 

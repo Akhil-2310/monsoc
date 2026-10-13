@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { uploadMedia, uploadsEnabled } from "@/lib/media";
 import { cleanProfile, validateProfile, mediaUrl, PROFILE_LIMITS, type Profile, type ProfileBody } from "@monsoc/sdk";
 import { useSession, relay } from "@/lib/session";
 import { errMsg } from "@/lib/format";
@@ -63,10 +64,16 @@ export function ProfileEditor({
           <textarea className="input" rows={3} value={form.bio} onChange={set("bio")} maxLength={PROFILE_LIMITS.bio} placeholder="What you build, what you care about" />
         </Field>
         <Field label="Avatar image" hint="ipfs:// or https://">
-          <input className="input" value={form.avatar} onChange={set("avatar")} placeholder="https://…/me.jpg" />
+          <div className="flex gap-2">
+            <input className="input" value={form.avatar} onChange={set("avatar")} placeholder="https://…/me.jpg" />
+            <ImageUpload onUploaded={(uri) => setForm((f) => ({ ...f, avatar: uri }))} onError={setErr} />
+          </div>
         </Field>
         <Field label="Banner image" hint="ipfs:// or https://">
-          <input className="input" value={form.banner} onChange={set("banner")} placeholder="https://…/banner.jpg" />
+          <div className="flex gap-2">
+            <input className="input" value={form.banner} onChange={set("banner")} placeholder="https://…/banner.jpg" />
+            <ImageUpload onUploaded={(uri) => setForm((f) => ({ ...f, banner: uri }))} onError={setErr} />
+          </div>
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Website" hint="https://">
@@ -148,5 +155,41 @@ function HandleChanger({ current, onChanged }: { current: string; onChanged: (h:
       </p>
       {err && <p className="mt-1 text-xs text-bad">{err}</p>}
     </div>
+  );
+}
+
+/** Uploads one image to ImageKit and hands back its URL. Hidden when the relay has no media provider. */
+function ImageUpload({ onUploaded, onError }: { onUploaded: (uri: string) => void; onError: (e: string | null) => void }) {
+  const { fid, appKey } = useSession();
+  const [enabled, setEnabled] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    uploadsEnabled().then(setEnabled);
+  }, []);
+  if (!enabled || !fid || !appKey) return null;
+
+  const pick = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return onError("Pick an image file");
+    onError(null);
+    setProgress(0);
+    try {
+      onUploaded((await uploadMedia(file, fid, appKey, setProgress)).uri);
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setProgress(null);
+      if (input.current) input.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
+      <button type="button" className="btn-ghost shrink-0" disabled={progress !== null} onClick={() => input.current?.click()}>
+        {progress !== null ? `${Math.round(progress * 100)}%` : "Upload"}
+      </button>
+    </>
   );
 }

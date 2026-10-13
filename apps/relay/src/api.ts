@@ -19,6 +19,7 @@ import { bus, ingest, RejectError } from "./messages";
 import { profile, profiles, queryPosts, postsByHash, handleOf, defaultLabelers } from "./views";
 import { proofFor, batchHashes } from "./anchor";
 import { forward, signup, faucet, addKey } from "./sponsor";
+import { mediaAuth, mediaEnabled } from "./media";
 import { trialResults, scoutScoresFor, currentEpoch } from "./jobs";
 
 export const app = new Hono();
@@ -94,6 +95,9 @@ app.post("/v1/faucet", async (c) => {
   if (!isAddress(address)) throw new RejectError("bad address");
   return c.json(await faucet(address));
 });
+
+app.get("/v1/media/config", (c) => c.json({ enabled: mediaEnabled(), provider: mediaEnabled() ? "imagekit" : null }));
+app.post("/v1/media/auth", async (c) => c.json(await mediaAuth(await c.req.json())));
 
 // ------------------------------------------------------------------ info
 

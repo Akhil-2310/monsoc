@@ -33,12 +33,22 @@ export type MessageType =
   | "label"
   | "profile";
 
+export interface MediaItem {
+  uri: string;
+  kind: "image" | "video";
+  sha256?: Hex;
+  mime?: string;
+  width?: number;
+  height?: number;
+  durationMs?: number;
+}
+
 export interface PostBody {
   text: string;
   tags?: string[];
   links?: string[];
-  /** content hashes (ipfs://...) */
-  media?: { uri: string; kind: "image" | "video"; durationMs?: number }[];
+  /** https:// (e.g. ImageKit) or ipfs:// links; sha256 of the file lets any client detect a swapped file */
+  media?: MediaItem[];
   community?: number;
   lang?: string;
 }

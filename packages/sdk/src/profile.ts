@@ -1,4 +1,4 @@
-import { PROFILE_LIMITS, type ProfileBody } from "./types";
+import { PROFILE_LIMITS, type MediaItem, type ProfileBody } from "./types";
 
 const IMAGE = /^(ipfs:\/\/[a-zA-Z0-9]+[^\s]*|https:\/\/[^\s]+)$/;
 const LINK = /^https:\/\/[^\s]+$/;
@@ -30,7 +30,29 @@ export function cleanProfile(p: ProfileBody): ProfileBody {
   return out;
 }
 
-/** ipfs:// → public gateway URL for display. */
-export function mediaUrl(uri: string, gateway = "https://ipfs.io/ipfs/"): string {
-  return uri.startsWith("ipfs://") ? gateway + uri.slice(7) : uri;
+/**
+ * Display URL for a media link: ipfs:// goes through a public gateway; ImageKit links get an on-the-fly
+ * resize (tr=w-…,h-…) so avatars and thumbnails don't download full-size originals.
+ */
+export function mediaUrl(uri: string, opts: { w?: number; h?: number; gateway?: string } = {}): string {
+  if (uri.startsWith("ipfs://")) return (opts.gateway ?? "https://ipfs.io/ipfs/") + uri.slice(7);
+  if ((opts.w || opts.h) && /^https:\/\/ik\.imagekit\.io\//.test(uri)) {
+    const tr = [opts.w && `w-${opts.w}`, opts.h && `h-${opts.h}`, "fo-auto"].filter(Boolean).join(",");
+    return `${uri}${uri.includes("?") ? "&" : "?"}tr=${tr}`;
+  }
+  return uri;
+}
+
+/** Media attached to posts: at most 4 items, https/ipfs links only, optional sha256 of the bytes. */
+export function validateMedia(media: unknown): string[] {
+  if (media === undefined) return [];
+  if (!Array.isArray(media)) return ["media must be a list"];
+  if (media.length > 4) return ["at most 4 media items"];
+  const errs: string[] = [];
+  for (const m of media as MediaItem[]) {
+    if (!m || typeof m.uri !== "string" || m.uri.length > 500 || !IMAGE.test(m.uri)) errs.push("media must be an ipfs:// or https:// link");
+    if (m?.kind !== "image" && m?.kind !== "video") errs.push("media kind must be image or video");
+    if (m?.sha256 !== undefined && !/^0x[0-9a-f]{64}$/.test(m.sha256)) errs.push("media sha256 must be 32 bytes hex");
+  }
+  return errs;
 }

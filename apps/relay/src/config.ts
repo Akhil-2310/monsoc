@@ -25,4 +25,12 @@ export const config = {
   maxClockSkewMs: 10 * 60_000,
   ipfsGateway: env.IPFS_GATEWAY ?? "https://ipfs.io/ipfs/",
   faucetEnabled: (env.FAUCET ?? "true") === "true",
+  /** ImageKit media uploads; leave unset to disable uploads (link pasting still works) */
+  imagekit: {
+    publicKey: env.IMAGEKIT_PUBLIC_KEY ?? "",
+    privateKey: env.IMAGEKIT_PRIVATE_KEY ?? "",
+    urlEndpoint: (env.IMAGEKIT_URL_ENDPOINT ?? "").replace(/\/$/, ""),
+    folder: env.IMAGEKIT_FOLDER ?? "/monsoc",
+    uploadsPerHour: Number(env.MEDIA_UPLOADS_PER_HOUR ?? 30),
+  },
 };

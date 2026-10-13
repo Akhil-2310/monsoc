@@ -106,6 +106,15 @@ export class RelayClient {
   keyNonce(custody: Address) {
     return this.req<{ nonce: string }>(`/v1/sponsor/key-nonce/${custody}`).then((r) => BigInt(r.nonce));
   }
+  mediaConfig() {
+    return this.req<{ enabled: boolean; provider: string | null }>("/v1/media/config");
+  }
+  mediaAuth(p: { fid: number; ts: number; signer: Address; signature: Hex }) {
+    return this.post<{ token: string; expire: number; signature: string; publicKey: string; urlEndpoint: string; folder: string }>(
+      "/v1/media/auth",
+      p,
+    );
+  }
   faucet(address: Address) {
     return this.post<{ txHash: Hex }>("/v1/faucet", { address });
   }

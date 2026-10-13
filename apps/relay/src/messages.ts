@@ -5,6 +5,7 @@ import {
   extractTags,
   extractLinks,
   validateProfile,
+  validateMedia,
   appKeysAbi,
   communitiesAbi,
   Scopes,
@@ -38,7 +39,7 @@ const MAX_CHAT = 2000;
 
 // ------------------------------------------------------------------ auth helpers
 
-async function signerAuthorized(fid: number, signer: Address, scope: number): Promise<boolean> {
+export async function signerAuthorized(fid: number, signer: Address, scope: number): Promise<boolean> {
   const row = get<{ scope: number; expiry: number; revoked: number }>(
     "SELECT scope, expiry, revoked FROM app_keys WHERE fid = ? AND signer = ?",
     fid,
@@ -148,6 +149,8 @@ async function validateBody(msg: SignedMessage) {
       const p = b as unknown as PostBody;
       if (typeof p.text !== "string" || (p.text.length === 0 && !p.media?.length)) reject("text required");
       if (p.text.length > MAX_TEXT) reject("text too long");
+      const mediaErrs = validateMedia(p.media);
+      if (mediaErrs.length) reject(mediaErrs.join("; "));
       if (type === "reply") {
         const parent = get("SELECT 1 FROM posts WHERE hash = ? AND deleted = 0", (b as unknown as ReplyBody).parent);
         if (!parent) reject("unknown parent");

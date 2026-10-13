@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Hex } from "viem";
-import { extractTags } from "@monsoc/sdk";
+import { extractTags, mediaUrl as displayUrl, type MediaItem } from "@monsoc/sdk";
+import { uploadMedia, uploadsEnabled } from "@/lib/media";
 import { useSession, relay } from "@/lib/session";
 import { errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
@@ -20,15 +21,23 @@ export function Composer({
   onPosted?: () => void;
   placeholder?: string;
 }) {
-  const { fid, profile, send } = useSession();
+  const { fid, profile, send, appKey } = useSession();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [trial, setTrial] = useState(false);
   const [variantB, setVariantB] = useState("");
   const [abTest, setAbTest] = useState(false);
-  const [mediaOpen, setMediaOpen] = useState(false);
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [uploading, setUploading] = useState<{ name: string; progress: number } | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [canUpload, setCanUpload] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    uploadsEnabled().then(setCanUpload);
+  }, []);
   const [autoRelease, setAutoRelease] = useState(true);
   const [communityId, setCommunityId] = useState<number | undefined>(community);
   const [myCommunities, setMyCommunities] = useState<{ id: number; name: string }[]>([]);
@@ -44,32 +53,56 @@ export function Composer({
   if (!fid) return null;
   const tags = extractTags(text);
 
+  const pickFiles = async (files: FileList | null) => {
+    if (!files || !appKey) return;
+    setErr(null);
+    for (const file of [...files].slice(0, 4 - media.length)) {
+      setUploading({ name: file.name, progress: 0 });
+      try {
+        const item = await uploadMedia(file, fid, appKey, (p) => setUploading({ name: file.name, progress: p }));
+        setMedia((m) => [...m, item]);
+      } catch (e) {
+        setErr(errMsg(e));
+        break;
+      }
+    }
+    setUploading(null);
+    if (fileInput.current) fileInput.current.value = "";
+  };
+
+  const addLink = () => {
+    const url = linkUrl.trim();
+    if (!/^(ipfs:\/\/|https:\/\/)/.test(url)) return setErr("Media must be an ipfs:// or https:// link");
+    setMedia((m) => [...m, { uri: url, kind: VIDEO.test(url) ? "video" : "image" }]);
+    setLinkUrl("");
+    setLinkOpen(false);
+    setErr(null);
+  };
+
   const submit = async () => {
     setBusy(true);
     setErr(null);
     try {
-      const url = mediaUrl.trim();
-      if (url && !/^(ipfs:\/\/|https:\/\/)/.test(url)) throw new Error("Media must be an ipfs:// or https:// link");
-      const media = url ? [{ uri: url, kind: VIDEO.test(url) ? ("video" as const) : ("image" as const) }] : undefined;
+      const attached = media.length ? media : undefined;
       if (parent) {
         await send("reply", { text, parent, community: communityId });
       } else if (trial) {
         if (tags.length === 0) throw new Error("Add at least one #topic so the trial knows which feeds to test in");
         const groupId = abTest ? `ab-${Date.now()}` : undefined;
         const base = { topics: tags, groupId, autoRelease: autoRelease ? { windowHours: 24, beatAverage: true as const } : undefined };
-        await send("trial-post", { text, tags, media, community: communityId, trial: { ...base, variant: abTest ? "A" : undefined } });
+        await send("trial-post", { text, tags, media: attached, community: communityId, trial: { ...base, variant: abTest ? "A" : undefined } });
         if (abTest && variantB.trim()) {
-          await send("trial-post", { text: variantB, tags, media, community: communityId, trial: { ...base, variant: "B" } });
+          await send("trial-post", { text: variantB, tags, media: attached, community: communityId, trial: { ...base, variant: "B" } });
         }
       } else {
-        await send("post", { text, tags, media, community: communityId });
+        await send("post", { text, tags, media: attached, community: communityId });
       }
       setText("");
       setVariantB("");
       setTrial(false);
       setAbTest(false);
-      setMediaUrl("");
-      setMediaOpen(false);
+      setMedia([]);
+      setLinkOpen(false);
       onPosted?.();
     } catch (e) {
       setErr(errMsg(e));
@@ -100,13 +133,46 @@ export function Composer({
               onChange={(e) => setVariantB(e.target.value)}
             />
           )}
-          {mediaOpen && (
-            <input
-              className="input mt-2"
-              placeholder="ipfs://… or https://… link to an image or video (mp4, webm)"
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-            />
+          {media.length > 0 && (
+            <div className={`mt-2 grid gap-2 ${media.length > 1 ? "grid-cols-2" : ""}`}>
+              {media.map((m, i) => (
+                <div key={m.uri} className="relative overflow-hidden rounded-xl border border-line bg-black">
+                  {m.kind === "video" ? (
+                    <video src={displayUrl(m.uri)} className="max-h-64 w-full object-contain" muted playsInline controls />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={displayUrl(m.uri, { w: 800 })} alt="" className="max-h-64 w-full object-cover" />
+                  )}
+                  <button
+                    className="absolute right-1.5 top-1.5 rounded-full bg-black/70 px-2 py-0.5 text-xs text-white hover:bg-black"
+                    onClick={() => setMedia((all) => all.filter((_, j) => j !== i))}
+                    title="Remove"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {uploading && (
+            <div className="mt-2 rounded-xl border border-line p-2 text-xs text-muted">
+              Uploading {uploading.name}… {Math.round(uploading.progress * 100)}%
+              <div className="mt-1 h-1 overflow-hidden rounded bg-panel-2">
+                <div className="h-full bg-accent transition-all" style={{ width: `${uploading.progress * 100}%` }} />
+              </div>
+            </div>
+          )}
+          {linkOpen && (
+            <div className="mt-2 flex gap-2">
+              <input
+                className="input"
+                placeholder="https://… or ipfs://… link to an image or video"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addLink()}
+              />
+              <button className="btn-ghost btn-sm" onClick={addLink}>Add</button>
+            </div>
           )}
           {trial && (
             <div className="mt-2 rounded-xl border border-accent/40 bg-accent-soft p-3 text-xs text-muted">
@@ -131,9 +197,34 @@ export function Composer({
               </button>
             )}
             {!parent && (
-              <button className={`btn-ghost btn-sm ${mediaOpen ? "border-accent text-accent" : ""}`} onClick={() => setMediaOpen(!mediaOpen)} title="Attach an image or video by link">
-                ▶ Media
-              </button>
+              <>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  hidden
+                  onChange={(e) => pickFiles(e.target.files)}
+                />
+                {canUpload && (
+                  <button
+                    className="btn-ghost btn-sm"
+                    disabled={!!uploading || media.length >= 4}
+                    onClick={() => fileInput.current?.click()}
+                    title="Upload images or videos (up to 4)"
+                  >
+                    ▲ Upload
+                  </button>
+                )}
+                <button
+                  className={`btn-ghost btn-sm ${linkOpen ? "border-accent text-accent" : ""}`}
+                  disabled={media.length >= 4}
+                  onClick={() => setLinkOpen(!linkOpen)}
+                  title="Attach an image or video by link"
+                >
+                  🔗 Link
+                </button>
+              </>
             )}
             {!parent && community === undefined && myCommunities.length > 0 && (
               <select
@@ -148,7 +239,7 @@ export function Composer({
               </select>
             )}
             {tags.length > 0 && <span className="text-xs text-muted">{tags.map((t) => `#${t}`).join(" ")}</span>}
-            <button className="btn-primary ml-auto" disabled={busy || !text.trim() || (abTest && !variantB.trim())} onClick={submit}>
+            <button className="btn-primary ml-auto" disabled={busy || !!uploading || (!text.trim() && media.length === 0) || (abTest && !variantB.trim())} onClick={submit}>
               {busy ? "Signing…" : parent ? "Reply" : trial ? "Start trial" : "Post"}
             </button>
           </div>
