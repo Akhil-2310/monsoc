@@ -41,7 +41,7 @@ export async function loadFeed(feed: FeedInfo, fid: number, subscribed: boolean,
   if (feed.priceUsd > 0 && !subscribed) return { items: [], locked: true };
   if (!feed.endpoint) return { items: [] };
   const [ranked, inputs] = await Promise.all([relay.hostedFeed(feed.endpoint, fid), relay.feedInputs(fid)]);
-  const posts = await relay.posts(ranked.items.map((i) => i.hash));
+  const posts = await relay.posts(ranked.items.map((i) => i.hash), fid || undefined);
   const main: RankedItem[] = posts.map((p) => ({ post: p, reason: "source", score: 0 }));
   // the default client enforces the protocol discovery slot on hosted feeds too
   const share = Math.max(feed.discoveryBps / 10_000, DISCOVERY_MIN);

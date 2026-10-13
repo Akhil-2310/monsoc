@@ -1,6 +1,6 @@
 import type { Address, Hex } from "viem";
 import type { ForwardRequestData, SignupParams } from "./meta";
-import type { PostView, Profile, SignedMessage } from "./types";
+import type { Notification, PostView, Profile, SignedMessage } from "./types";
 import type { FeedDefinition } from "./feed";
 
 export interface FeedInfo {
@@ -135,8 +135,8 @@ export class RelayClient {
   following(fid: number) {
     return this.req<Profile[]>(`/v1/users/${fid}/following`);
   }
-  userPosts(fid: number) {
-    return this.req<PostView[]>(`/v1/users/${fid}/posts`);
+  userPosts(fid: number, viewer?: number) {
+    return this.req<PostView[]>(`/v1/users/${fid}/posts${viewer ? `?viewer=${viewer}` : ""}`);
   }
   feedInputs(fid: number, opts: { topics?: string[]; community?: number; limit?: number } = {}) {
     const q = new URLSearchParams({ fid: String(fid) });
@@ -145,11 +145,27 @@ export class RelayClient {
     if (opts.limit) q.set("limit", String(opts.limit));
     return this.req<FeedInputs>(`/v1/feed-inputs?${q}`);
   }
-  posts(hashes: Hex[]) {
-    return this.post<PostView[]>("/v1/posts/batch", { hashes });
+  posts(hashes: Hex[], viewer?: number) {
+    return this.post<PostView[]>("/v1/posts/batch", { hashes, viewer });
   }
-  thread(hash: Hex) {
-    return this.req<{ root: PostView; replies: PostView[] }>(`/v1/threads/${hash}`);
+  thread(hash: Hex, viewer?: number) {
+    return this.req<{ root: PostView; replies: PostView[] }>(`/v1/threads/${hash}${viewer ? `?viewer=${viewer}` : ""}`);
+  }
+  notifications(fid: number, before?: number) {
+    return this.req<Notification[]>(`/v1/users/${fid}/notifications${before ? `?before=${before}` : ""}`);
+  }
+  unreadCount(fid: number, since: number) {
+    return this.req<{ count: number }>(`/v1/users/${fid}/notifications/count?since=${since}`);
+  }
+  relations(fid: number) {
+    return this.req<{ muted: Profile[]; blocked: Profile[] }>(`/v1/users/${fid}/relations`);
+  }
+  search(q: string, viewer?: number) {
+    const params = new URLSearchParams({ q });
+    if (viewer) params.set("viewer", String(viewer));
+    return this.req<{ users: Profile[]; posts: PostView[]; communities: CommunityInfo[]; feeds: FeedInfo[]; tags: { tag: string; posts: number }[] }>(
+      `/v1/search?${params}`,
+    );
   }
   proof(hash: Hex) {
     return this.req<{ batchId: number; root: Hex; proof: Hex[]; txHash: Hex } | { pending: true }>(`/v1/proofs/${hash}`);

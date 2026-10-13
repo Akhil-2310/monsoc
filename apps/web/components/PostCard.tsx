@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import type { Hex } from "viem";
 import { useEffect, useRef, useState } from "react";
 import type { PostView, RankReason } from "@monsoc/sdk";
 import { paymentsAbi, tusdAbi, mediaUrl } from "@monsoc/sdk";
@@ -76,10 +77,13 @@ export function PostCard({
   compact?: boolean;
 }) {
   const ref = useViewTracker(post, feedId);
-  const { fid, send, call, following, setFollow } = useSession();
-  const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
-  const [backed, setBacked] = useState(false);
+  const { fid, send, call, following, setFollow, muted, blocked, setRelation } = useSession();
+  // hash of the viewer's own like/repost message, so it can be undone with a signed `delete`
+  const [likeHash, setLikeHash] = useState<Hex | null>(post.viewer?.like ?? null);
+  const [repostHash, setRepostHash] = useState<Hex | null>(post.viewer?.repost ?? null);
+  const [backed, setBacked] = useState(post.viewer?.backed ?? false);
+  const [removed, setRemoved] = useState(false);
+  const [menu, setMenu] = useState(false);
   const [stats, setStats] = useState(post.stats);
   const [err, setErr] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -98,18 +102,37 @@ export function PostCard({
     }
   };
 
-  const like = () =>
-    act(
-      () => send("like", { target: post.hash }),
-      () => (setLiked(true), setStats((s) => ({ ...s, likes: s.likes + 1 }))),
-      () => (setLiked(false), setStats((s) => ({ ...s, likes: s.likes - 1 }))),
-    );
-  const repost = () =>
-    act(
-      () => send("repost", { target: post.hash }),
-      () => (setReposted(true), setStats((s) => ({ ...s, reposts: s.reposts + 1 }))),
-      () => (setReposted(false), setStats((s) => ({ ...s, reposts: s.reposts - 1 }))),
-    );
+  const PENDING = "0xpending" as Hex;
+  const toggleLike = () =>
+    likeHash
+      ? act(
+          () => send("delete", { target: likeHash }),
+          () => (setLikeHash(null), setStats((s) => ({ ...s, likes: s.likes - 1 }))),
+          () => (setLikeHash(likeHash), setStats((s) => ({ ...s, likes: s.likes + 1 }))),
+        )
+      : act(
+          async () => setLikeHash((await send("like", { target: post.hash })).hash),
+          () => (setLikeHash(PENDING), setStats((s) => ({ ...s, likes: s.likes + 1 }))),
+          () => (setLikeHash(null), setStats((s) => ({ ...s, likes: s.likes - 1 }))),
+        );
+  const toggleRepost = () =>
+    repostHash
+      ? act(
+          () => send("delete", { target: repostHash }),
+          () => (setRepostHash(null), setStats((s) => ({ ...s, reposts: s.reposts - 1 }))),
+          () => (setRepostHash(repostHash), setStats((s) => ({ ...s, reposts: s.reposts + 1 }))),
+        )
+      : act(
+          async () => setRepostHash((await send("repost", { target: post.hash })).hash),
+          () => (setRepostHash(PENDING), setStats((s) => ({ ...s, reposts: s.reposts + 1 }))),
+          () => (setRepostHash(null), setStats((s) => ({ ...s, reposts: s.reposts - 1 }))),
+        );
+  const remove = () =>
+    confirm("Delete this post? It disappears from every client; the anchored record shows it was deleted.") &&
+    act(() => send("delete", { target: post.hash }), () => setRemoved(true), () => setRemoved(false));
+  const relate = (kind: "mute" | "block") =>
+    act(() => setRelation(kind, post.fid, true), () => setMenu(false), () => undefined);
+
   const back = () =>
     act(
       () => send("back", { targetFid: post.fid, target: post.hash }),
@@ -124,6 +147,14 @@ export function PostCard({
       },
       () => undefined,
       () => undefined,
+    );
+
+  if (removed) return null;
+  if (!isOwn && (muted.has(post.fid) || blocked.has(post.fid)))
+    return (
+      <div className="border-b border-line px-4 py-2 text-xs text-muted">
+        Post from {blocked.has(post.fid) ? "an account you blocked" : "an account you muted"}.
+      </div>
     );
 
   return (
@@ -161,11 +192,38 @@ export function PostCard({
                 community #{post.community}
               </Link>
             )}
-            {isStranger && fid && (
-              <button className="ml-auto text-xs text-accent hover:underline" onClick={() => setFollow(post.fid, true).catch((e) => setErr(errMsg(e)))}>
-                Follow
-              </button>
-            )}
+            <span className="ml-auto flex items-center gap-2">
+              {isStranger && fid && (
+                <button className="text-xs text-accent hover:underline" onClick={() => setFollow(post.fid, true).catch((e) => setErr(errMsg(e)))}>
+                  Follow
+                </button>
+              )}
+              {fid && (
+                <span className="relative">
+                  <button className="rounded-full px-1.5 text-muted hover:bg-panel-2 hover:text-text" onClick={() => setMenu(!menu)} aria-label="More">
+                    ⋯
+                  </button>
+                  {menu && (
+                    <div className="absolute right-0 top-6 z-20 w-44 overflow-hidden rounded-xl border border-line bg-panel shadow-xl" onMouseLeave={() => setMenu(false)}>
+                      {isOwn ? (
+                        <button className="block w-full px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={remove}>
+                          Delete post
+                        </button>
+                      ) : (
+                        <>
+                          <button className="block w-full px-3 py-2 text-left text-sm hover:bg-panel-2" onClick={() => relate("mute")}>
+                            Mute @{post.handle ?? post.fid}
+                          </button>
+                          <button className="block w-full px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={() => relate("block")}>
+                            Block @{post.handle ?? post.fid}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </span>
+              )}
+            </span>
           </div>
 
           {post.labels.length > 0 && (
@@ -217,8 +275,8 @@ export function PostCard({
 
           <div className="mt-2 flex items-center gap-5 text-[13px] text-muted">
             <Link href={`/post/${post.hash}`} className="hover:text-text">↩ {stats.replies}</Link>
-            <button disabled={!fid || reposted} onClick={repost} className={`hover:text-good ${reposted ? "text-good" : ""}`}>⟲ {stats.reposts}</button>
-            <button disabled={!fid || liked} onClick={like} className={`hover:text-bad ${liked ? "text-bad" : ""}`}>♥ {stats.likes}</button>
+            <button disabled={!fid || repostHash === PENDING} onClick={toggleRepost} title={repostHash ? "Undo repost" : "Repost"} className={`hover:text-good ${repostHash ? "text-good" : ""}`}>⟲ {stats.reposts}</button>
+            <button disabled={!fid || likeHash === PENDING} onClick={toggleLike} title={likeHash ? "Unlike" : "Like"} className={`hover:text-bad ${likeHash ? "text-bad" : ""}`}>{likeHash ? "♥" : "♡"} {stats.likes}</button>
             {cfg.plugins.scouts && !isOwn && (isStranger || post.trial) && (
               <button
                 disabled={!fid || backed}

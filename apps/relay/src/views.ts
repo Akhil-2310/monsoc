@@ -6,8 +6,11 @@ export function defaultLabelers(): number[] {
   return JSON.parse(kvGet("labelers.default") ?? "[]");
 }
 
-const POST_SELECT = (labelers: number[]) => `
+const POST_SELECT = (labelers: number[], viewer: number) => `
 SELECT p.*, u.handle, pr.display_name, pr.avatar,
+  (SELECT r.hash FROM reactions r WHERE r.target = p.hash AND r.fid = ${viewer} AND r.type = 'like') AS v_like,
+  (SELECT r.hash FROM reactions r WHERE r.target = p.hash AND r.fid = ${viewer} AND r.type = 'repost') AS v_repost,
+  (SELECT 1 FROM backs b WHERE b.fid = ${viewer} AND b.creator = p.fid) AS v_backed,
   (SELECT COUNT(*) FROM reactions r WHERE r.target = p.hash AND r.type = 'like') AS likes,
   (SELECT COUNT(*) FROM reactions r WHERE r.target = p.hash AND r.type = 'repost') AS reposts,
   (SELECT COUNT(*) FROM posts c WHERE c.parent = p.hash AND c.deleted = 0) AS replies,
@@ -53,9 +56,12 @@ interface PostRow {
   author_rep: number;
   label_list: string | null;
   anchor_batch: number | null;
+  v_like: Hex | null;
+  v_repost: Hex | null;
+  v_backed: number | null;
 }
 
-function toView(r: PostRow): PostView {
+function toView(r: PostRow, viewer: number): PostView {
   return {
     hash: r.hash,
     fid: r.fid,
@@ -83,22 +89,30 @@ function toView(r: PostRow): PostView {
     authorFollowers: r.author_followers,
     authorReputation: r.author_rep,
     anchored: r.anchor_batch !== null,
+    ...(viewer ? { viewer: { like: r.v_like, repost: r.v_repost, backed: !!r.v_backed } } : {}),
   };
 }
+
+/** Accounts hidden from `viewer`: ones they muted or blocked, and ones who blocked them. */
+export const hiddenFor = (viewer: number) =>
+  viewer
+    ? `(SELECT target FROM relations WHERE fid = ${viewer} UNION SELECT fid FROM relations WHERE target = ${viewer} AND kind = 'block')`
+    : "(SELECT -1)";
 
 export function queryPosts(
   where: string,
   args: (string | number)[],
-  opts: { order?: string; limit?: number; labelers?: number[] } = {},
+  opts: { order?: string; limit?: number; labelers?: number[]; viewer?: number } = {},
 ): PostView[] {
-  const sql = `${POST_SELECT(opts.labelers ?? defaultLabelers())} WHERE p.deleted = 0 AND (${where}) ORDER BY ${opts.order ?? "p.ts DESC"} LIMIT ${opts.limit ?? 200}`;
-  return all<PostRow>(sql, ...args).map(toView);
+  const viewer = Math.max(0, Math.floor(Number(opts.viewer) || 0)); // integer, safe to inline
+  const sql = `${POST_SELECT(opts.labelers ?? defaultLabelers(), viewer)} WHERE p.deleted = 0 AND p.fid NOT IN ${hiddenFor(viewer)} AND (${where}) ORDER BY ${opts.order ?? "p.ts DESC"} LIMIT ${opts.limit ?? 200}`;
+  return all<PostRow>(sql, ...args).map((r) => toView(r, viewer));
 }
 
-export function postsByHash(hashes: string[], labelers?: number[]): PostView[] {
+export function postsByHash(hashes: string[], labelers?: number[], viewer?: number): PostView[] {
   if (hashes.length === 0) return [];
   const byHash = new Map(
-    queryPosts(`p.hash IN (${hashes.map(() => "?").join(",")})`, hashes, { limit: hashes.length, labelers }).map((p) => [
+    queryPosts(`p.hash IN (${hashes.map(() => "?").join(",")})`, hashes, { limit: hashes.length, labelers, viewer }).map((p) => [
       p.hash,
       p,
     ]),
@@ -169,6 +183,7 @@ export function profile(fidOrHandle: number | string): Profile | null {
 }
 
 export function profiles(where: string, args: (string | number)[], order = "followers DESC", limit = 100): Profile[] {
+  // note: `pr` (profiles) is joined in PROFILE_SELECT, so callers may filter on pr.display_name
   return all<ProfileRow>(`${PROFILE_SELECT} WHERE ${where} ORDER BY ${order} LIMIT ${limit}`, ...args).map(toProfile);
 }
 

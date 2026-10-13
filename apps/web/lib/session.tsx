@@ -52,6 +52,10 @@ interface Session {
   send<T extends MessageType>(type: T, body: BodyFor<T>): Promise<SignedMessage<T>>;
   call(to: Address, abi: Abi | readonly unknown[], functionName: string, args: readonly unknown[]): Promise<Hex>;
   setFollow(target: number, on: boolean): Promise<void>;
+  /** accounts you've muted / blocked (signed, so every client respects them) */
+  muted: Set<number>;
+  blocked: Set<number>;
+  setRelation(kind: "mute" | "block", target: number, on: boolean): Promise<void>;
   refresh(): Promise<void>;
 }
 
@@ -70,13 +74,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [custody, setCustody] = useState<Address | null>(null);
   const [appKey, setAppKey] = useState<LocalAccount | null>(null);
   const [following, setFollowing] = useState<Set<number>>(new Set());
+  const [muted, setMuted] = useState<Set<number>>(new Set());
+  const [blocked, setBlocked] = useState<Set<number>>(new Set());
   const seqRef = useRef(0);
   const sendQueue = useRef<Promise<unknown>>(Promise.resolve());
 
   const loadUser = useCallback(async (f: number) => {
-    const [p, fol] = await Promise.all([relay.user(f).catch(() => null), relay.following(f).catch(() => [])]);
+    const [p, fol, rel] = await Promise.all([
+      relay.user(f).catch(() => null),
+      relay.following(f).catch(() => []),
+      relay.relations(f).catch(() => ({ muted: [], blocked: [] })),
+    ]);
     setProfile(p);
     setFollowing(new Set(fol.map((x) => x.fid)));
+    setMuted(new Set(rel.muted.map((x) => x.fid)));
+    setBlocked(new Set(rel.blocked.map((x) => x.fid)));
   }, []);
 
   // restore
@@ -206,6 +218,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setAppKey(null);
     setCustody(null);
     setFollowing(new Set());
+    setMuted(new Set());
+    setBlocked(new Set());
   }, []);
 
   const send = useCallback(
@@ -319,13 +333,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [fid, custody],
   );
 
+  const setRelation = useCallback(
+    async (kind: "mute" | "block", target: number, on: boolean) => {
+      const set = kind === "mute" ? setMuted : setBlocked;
+      const flip = (v: boolean) =>
+        set((cur) => {
+          const n = new Set(cur);
+          v ? n.add(target) : n.delete(target);
+          return n;
+        });
+      flip(on);
+      try {
+        await send(kind, on ? { targetFid: target } : { targetFid: target, undo: true });
+      } catch (e) {
+        flip(!on);
+        throw e;
+      }
+    },
+    [send],
+  );
+
   const refresh = useCallback(async () => {
     if (fid) await loadUser(fid);
   }, [fid, loadUser]);
 
   const value = useMemo<Session>(
-    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, refresh }),
-    [ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, refresh],
+    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, muted, blocked, setRelation, refresh }),
+    [ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, muted, blocked, setRelation, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

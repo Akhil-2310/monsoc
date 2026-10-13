@@ -5,6 +5,8 @@ import { erc20Abi, formatEther, type Address, type Hex } from "viem";
 import { paymentsAbi, appKeysAbi, NATIVE } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { useSession, relay, publicClient, deployment } from "@/lib/session";
+import { Avatar } from "@/components/Avatar";
+import type { Profile } from "@monsoc/sdk";
 import { errMsg, tokenAmount } from "@/lib/format";
 
 type Claim = { epoch: number; token: Address; amount: string; proof: Hex[]; claimed: boolean };
@@ -151,8 +153,41 @@ export default function Wallet() {
             Revoke this app key
           </button>
         </section>
+        <RelationsSection />
         {msg && <p className="text-sm text-muted">{msg}</p>}
       </div>
     </Shell>
+  );
+}
+
+function RelationsSection() {
+  const { fid, setRelation, muted, blocked } = useSession();
+  const [lists, setLists] = useState<{ muted: Profile[]; blocked: Profile[] } | null>(null);
+  // fetch profiles once; membership follows the session's live (optimistic) sets, so undo is instant
+  useEffect(() => {
+    if (fid) relay.relations(fid).then(setLists);
+  }, [fid]);
+  if (!lists) return null;
+  const shown = {
+    muted: lists.muted.filter((p) => muted.has(p.fid)),
+    blocked: lists.blocked.filter((p) => blocked.has(p.fid)),
+  };
+  const row = (p: Profile, kind: "mute" | "block") => (
+    <div key={`${kind}${p.fid}`} className="flex items-center gap-2 rounded-xl bg-panel-2 px-3 py-2 text-sm">
+      <Avatar fid={p.fid} handle={p.handle} src={p.avatar} size={24} />
+      <span className="flex-1">@{p.handle}</span>
+      <button className="btn-ghost btn-sm" onClick={() => setRelation(kind, p.fid, false)}>{kind === "mute" ? "Unmute" : "Unblock"}</button>
+    </div>
+  );
+  return (
+    <section className="card p-4">
+      <h3 className="font-semibold">Muted & blocked</h3>
+      <p className="text-xs text-muted">Signed with your key, so every client on the protocol respects them.</p>
+      {shown.muted.length + shown.blocked.length === 0 && <p className="mt-2 text-sm text-muted">Nobody yet.</p>}
+      <div className="mt-2 space-y-2">
+        {shown.blocked.map((p) => row(p, "block"))}
+        {shown.muted.map((p) => row(p, "mute"))}
+      </div>
+    </section>
   );
 }

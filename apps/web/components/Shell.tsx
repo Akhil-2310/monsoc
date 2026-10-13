@@ -3,11 +3,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSession } from "@/lib/session";
+import { useUnreadCount } from "@/lib/notifications";
 import { Avatar } from "./Avatar";
 import cfg from "@/monsoc.config";
 
 const NAV = [
   { href: "/", label: "Home", icon: "⌂" },
+  { href: "/search", label: "Search", icon: "⌕" },
+  { href: "/notifications", label: "Notifications", icon: "♪", auth: true },
   { href: "/communities", label: "Communities", icon: "◍" },
   { href: "/feeds", label: "Feeds", icon: "≋" },
   { href: "/trials", label: "Trials", icon: "◎", plugin: "trials" as const },
@@ -18,7 +21,12 @@ const NAV = [
 export function Shell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   const path = usePathname();
   const { fid, profile } = useSession();
-  const items = NAV.filter((n) => !n.plugin || cfg.plugins[n.plugin]);
+  const unread = useUnreadCount(fid);
+  const items = NAV.filter((n) => (!n.plugin || cfg.plugins[n.plugin]) && (!("auth" in n) || fid));
+  const badge = (href: string) =>
+    href === "/notifications" && unread > 0 ? (
+      <span className="ml-auto rounded-full bg-accent px-1.5 text-[10px] font-semibold leading-4 text-white">{unread > 99 ? "99+" : unread}</span>
+    ) : null;
   const profileHref = fid ? `/u/${profile?.handle ?? fid}` : "/login";
 
   return (
@@ -30,6 +38,7 @@ export function Shell({ children, aside }: { children: ReactNode; aside?: ReactN
         {items.map((n) => (
           <Link key={n.href} href={n.href} className={`tab flex items-center gap-3 text-[15px] ${path === n.href ? "tab-on" : ""}`}>
             <span className="w-4 text-center">{n.icon}</span> {n.label}
+            {badge(n.href)}
           </Link>
         ))}
         {fid && (
@@ -47,9 +56,10 @@ export function Shell({ children, aside }: { children: ReactNode; aside?: ReactN
 
       <nav className="fixed inset-x-0 bottom-0 z-10 flex justify-around border-t border-line bg-bg/95 py-2 backdrop-blur md:hidden">
         {items.map((n) => (
-          <Link key={n.href} href={n.href} className={`flex flex-col items-center px-2 text-[10px] ${path === n.href ? "text-accent" : "text-muted"}`}>
+          <Link key={n.href} href={n.href} className={`relative flex flex-col items-center px-1 text-[10px] ${path === n.href ? "text-accent" : "text-muted"}`}>
             <span className="text-lg leading-none">{n.icon}</span>
-            {n.label}
+            {n.label === "Notifications" ? "Alerts" : n.label}
+            {n.href === "/notifications" && unread > 0 && <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-accent" />}
           </Link>
         ))}
         <Link href={profileHref} className={`flex flex-col items-center px-2 text-[10px] ${path === profileHref ? "text-accent" : "text-muted"}`}>

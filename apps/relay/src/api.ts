@@ -16,7 +16,7 @@ import { config } from "./config";
 import { all, get, kvGet } from "./db";
 import { deployment, publicClient, relayAccount } from "./chain";
 import { bus, ingest, RejectError } from "./messages";
-import { profile, profiles, queryPosts, postsByHash, handleOf, defaultLabelers } from "./views";
+import { profile, profiles, queryPosts, postsByHash, handleOf, defaultLabelers, hiddenFor } from "./views";
 import { proofFor, batchHashes } from "./anchor";
 import { forward, signup, faucet, addKey } from "./sponsor";
 import { mediaAuth, mediaEnabled } from "./media";
@@ -37,6 +37,7 @@ const fidParam = (v: string | undefined) => {
   return n;
 };
 const labelersFrom = (q: string | undefined) => (q ? q.split(",").map(Number).filter(Boolean) : undefined);
+const viewerFrom = (q: string | undefined) => Math.max(0, Math.floor(Number(q) || 0));
 
 // ------------------------------------------------------------------ writes
 
@@ -122,7 +123,13 @@ app.get("/v1/users/:fid/following", (c) =>
   c.json(profiles("u.fid IN (SELECT target FROM follows WHERE fid = ?)", [fidParam(c.req.param("fid"))])),
 );
 app.get("/v1/users/:fid/posts", (c) =>
-  c.json(queryPosts("p.fid = ?", [fidParam(c.req.param("fid"))], { limit: 100, labelers: labelersFrom(c.req.query("labelers")) })),
+  c.json(
+    queryPosts("p.fid = ? AND (p.trial_status IS NULL OR p.trial_status != 'testing' OR p.fid = ?)", [fidParam(c.req.param("fid")), viewerFrom(c.req.query("viewer"))], {
+      limit: 100,
+      labelers: labelersFrom(c.req.query("labelers")),
+      viewer: viewerFrom(c.req.query("viewer")),
+    }),
+  ),
 );
 app.get("/v1/users/:fid/subscriptions", (c) =>
   c.json(
@@ -220,31 +227,32 @@ app.get("/v1/feed-inputs", (c) => {
 
   let posts;
   if (community) {
-    posts = queryPosts("p.community = ? AND p.type != 'reply'", [community], { limit, labelers });
+    posts = queryPosts("p.community = ? AND p.type != 'reply'", [community], { limit, labelers, viewer: fid });
   } else if (topics.length) {
     posts = queryPosts(
       `p.type != 'reply' AND p.hash IN (SELECT hash FROM post_tags WHERE tag IN (${topics.map(() => "?").join(",")}))`,
       topics,
-      { limit, labelers },
+      { limit, labelers, viewer: fid },
     );
   } else {
-    const net = queryPosts("p.type != 'reply' AND p.fid IN (SELECT target FROM follows WHERE fid = ?)", [fid], { limit: 200, labelers });
-    const global = queryPosts("p.type != 'reply'", [], { limit, labelers });
+    const net = queryPosts("p.type != 'reply' AND p.fid IN (SELECT target FROM follows WHERE fid = ?)", [fid], { limit: 200, labelers, viewer: fid });
+    const global = queryPosts("p.type != 'reply'", [], { limit, labelers, viewer: fid });
     posts = [...net, ...global];
   }
   return c.json({ following, posts });
 });
 
 app.post("/v1/posts/batch", async (c) => {
-  const { hashes, labelers } = await c.req.json<{ hashes: string[]; labelers?: number[] }>();
-  return c.json(postsByHash(hashes.slice(0, 200), labelers));
+  const { hashes, labelers, viewer } = await c.req.json<{ hashes: string[]; labelers?: number[]; viewer?: number }>();
+  return c.json(postsByHash(hashes.slice(0, 200), labelers, viewerFrom(String(viewer ?? 0))));
 });
 
 app.get("/v1/threads/:hash", (c) => {
   const hash = c.req.param("hash");
-  const [root] = postsByHash([hash]);
+  const viewer = viewerFrom(c.req.query("viewer"));
+  const [root] = postsByHash([hash], undefined, viewer);
   if (!root) return c.json({ error: "not found" }, 404);
-  const replies = queryPosts("p.root = ? OR p.parent = ?", [hash, hash], { order: "p.ts ASC", limit: 500 });
+  const replies = queryPosts("p.root = ? OR p.parent = ?", [hash, hash], { order: "p.ts ASC", limit: 500, viewer });
   return c.json({ root, replies });
 });
 
@@ -445,6 +453,117 @@ app.get("/v1/labelers", (c) =>
   ),
 );
 
+// ------------------------------------------------------------------ notifications
+
+const NOTIF_SQL = (viewer: number) => `
+  SELECT * FROM (
+    SELECT 'like' AS kind, r.fid AS actor, p.hash AS post, NULL AS community, r.ts AS at, r.hash AS id
+      FROM reactions r JOIN posts p ON p.hash = r.target
+      WHERE p.fid = ${viewer} AND r.fid != ${viewer} AND r.type = 'like' AND p.deleted = 0
+    UNION ALL SELECT 'repost', r.fid, p.hash, NULL, r.ts, r.hash
+      FROM reactions r JOIN posts p ON p.hash = r.target
+      WHERE p.fid = ${viewer} AND r.fid != ${viewer} AND r.type = 'repost' AND p.deleted = 0
+    UNION ALL SELECT 'reply', c.fid, c.hash, NULL, c.ts, c.hash
+      FROM posts c JOIN posts p ON p.hash = c.parent
+      WHERE p.fid = ${viewer} AND c.fid != ${viewer} AND c.deleted = 0
+    UNION ALL SELECT 'mention', m.author, m.hash, NULL, m.ts, 'm' || m.hash
+      FROM mentions m JOIN posts p ON p.hash = m.hash
+      WHERE m.fid = ${viewer} AND p.deleted = 0
+        AND NOT EXISTS (SELECT 1 FROM posts pp WHERE pp.hash = p.parent AND pp.fid = ${viewer})
+    UNION ALL SELECT 'follow', f.fid, NULL, NULL, f.ts, 'f' || f.fid
+      FROM follows f WHERE f.target = ${viewer}
+    UNION ALL SELECT 'back', b.fid, b.target, NULL, b.ts, 'b' || b.fid
+      FROM backs b WHERE b.creator = ${viewer}
+    UNION ALL SELECT 'invite', i.by_fid, NULL, i.community_id, i.at, 'i' || i.community_id
+      FROM invites i WHERE i.fid = ${viewer}
+  ) WHERE actor NOT IN ${hiddenFor(viewer)}`;
+
+app.get("/v1/users/:fid/notifications", (c) => {
+  const fid = fidParam(c.req.param("fid"));
+  const before = Number(c.req.query("before") ?? 0) || Number.MAX_SAFE_INTEGER;
+  const rows = all<{ kind: string; actor: number; post: string | null; community: number | null; at: number; id: string }>(
+    `${NOTIF_SQL(fid)} AND at < ? ORDER BY at DESC LIMIT 50`,
+    before,
+  );
+  const actors = new Map(
+    profiles(`u.fid IN (${[...new Set(rows.map((r) => r.actor))].join(",") || 0})`, [], "u.fid", 50).map((p) => [p.fid, p]),
+  );
+  const texts = new Map(
+    all<{ hash: string; text: string }>(
+      `SELECT hash, text FROM posts WHERE hash IN (${rows.filter((r) => r.post).map(() => "?").join(",") || "''"})`,
+      ...rows.filter((r) => r.post).map((r) => r.post!),
+    ).map((r) => [r.hash, r.text]),
+  );
+  const names = new Map(
+    all<{ id: number; meta: string | null }>("SELECT id, meta FROM communities").map((r) => [r.id, (r.meta && JSON.parse(r.meta)?.name) || `Community #${r.id}`]),
+  );
+  return c.json(
+    rows.map((r) => {
+      const a = actors.get(r.actor);
+      return {
+        id: `${r.kind}:${r.id}`,
+        kind: r.kind,
+        actor: { fid: r.actor, handle: a?.handle ?? null, displayName: a?.displayName ?? null, avatar: a?.avatar ?? null },
+        post: r.post ? { hash: r.post, text: texts.get(r.post) ?? "" } : null,
+        community: r.community ? { id: r.community, name: names.get(r.community) } : null,
+        at: r.at,
+      };
+    }),
+  );
+});
+
+app.get("/v1/users/:fid/notifications/count", (c) => {
+  const fid = fidParam(c.req.param("fid"));
+  const since = Number(c.req.query("since") ?? 0);
+  return c.json(get<{ count: number }>(`SELECT COUNT(*) AS count FROM (${NOTIF_SQL(fid)} AND at > ?)`, since) ?? { count: 0 });
+});
+
+app.get("/v1/users/:fid/relations", (c) => {
+  const fid = fidParam(c.req.param("fid"));
+  return c.json({
+    muted: profiles("u.fid IN (SELECT target FROM relations WHERE fid = ? AND kind = 'mute')", [fid], "u.handle"),
+    blocked: profiles("u.fid IN (SELECT target FROM relations WHERE fid = ? AND kind = 'block')", [fid], "u.handle"),
+  });
+});
+
+// ------------------------------------------------------------------ search
+
+app.get("/v1/search", (c) => {
+  const raw = (c.req.query("q") ?? "").trim().slice(0, 64);
+  const viewer = viewerFrom(c.req.query("viewer"));
+  if (raw.length < 1) return c.json({ users: [], posts: [], communities: [], feeds: [], tags: [] });
+  const q = raw.replace(/^[@#]/, "").toLowerCase();
+  const like = `%${q.replace(/[%_\\]/g, (m) => "\\" + m)}%`;
+  const users = profiles(
+    `(u.handle LIKE ? ESCAPE '\\' OR LOWER(pr.display_name) LIKE ? ESCAPE '\\') AND u.fid NOT IN ${hiddenFor(viewer)}`,
+    [like, like],
+    "followers DESC",
+    20,
+  );
+  const posts = raw.startsWith("@")
+    ? []
+    : raw.startsWith("#")
+      ? queryPosts("p.trial_status IS NOT 'testing' AND p.hash IN (SELECT hash FROM post_tags WHERE tag = ?)", [q], { limit: 40, viewer })
+      : queryPosts("p.trial_status IS NOT 'testing' AND LOWER(p.text) LIKE ? ESCAPE '\\'", [like], { limit: 40, viewer });
+  const communities = all<CommunityRow>(`${COMMUNITY_SELECT} ORDER BY member_count DESC`)
+    .map(toCommunity)
+    .filter((cm) => `${cm.name} ${cm.description} ${cm.tags.join(" ")}`.toLowerCase().includes(q))
+    .slice(0, 10);
+  // name matches first, then description matches
+  const feeds = all<FeedRow>(`${FEED_SELECT} WHERE f.active = 1`, Date.now())
+    .map(toFeed)
+    .map((f) => ({ f, rank: f.name.toLowerCase().includes(q) ? 0 : f.description.toLowerCase().includes(q) && q.length >= 3 ? 1 : 2 }))
+    .filter((x) => x.rank < 2)
+    .sort((a, b) => a.rank - b.rank)
+    .map((x) => x.f)
+    .slice(0, 10);
+  const tags = all<{ tag: string; posts: number }>(
+    "SELECT tag, COUNT(*) AS posts FROM post_tags WHERE tag LIKE ? ESCAPE '\\' GROUP BY tag ORDER BY posts DESC LIMIT 10",
+    `${q.replace(/[%_\\]/g, (m) => "\\" + m)}%`,
+  );
+  return c.json({ users, posts, communities, feeds, tags });
+});
+
 // ------------------------------------------------------------------ realtime
 
 app.get("/v1/stream", (c) =>
@@ -472,7 +591,7 @@ app.get("/v1/stream", (c) =>
  */
 app.get("/hosted/high-signal", (c) => {
   const fid = Number(c.req.query("fid") ?? 0);
-  const posts = queryPosts("p.type != 'reply' AND p.trial_status IS NOT 'testing'", [], { limit: 400 })
+  const posts = queryPosts("p.type != 'reply' AND p.trial_status IS NOT 'testing'", [], { limit: 400, viewer: fid })
     .filter((p) => p.authorReputation >= 0.5 && p.fid !== fid && !p.labels.some((l) => ["spam", "engagement-bait", "giveaway", "scam"].includes(l)))
     .map((p) => {
       const ageH = (Date.now() - p.timestamp) / 3_600_000;

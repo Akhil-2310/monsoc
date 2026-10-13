@@ -6,13 +6,14 @@ import { anchorAbi, verifyMedia } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { PostCard } from "@/components/PostCard";
 import { Composer } from "@/components/Composer";
-import { relay, publicClient, deployment } from "@/lib/session";
+import { relay, publicClient, deployment, useSession } from "@/lib/session";
 import { errMsg } from "@/lib/format";
 
 type Proof = { batchId: number; root: Hex; proof: Hex[]; txHash: Hex } | { pending: true };
 
 export default function Thread({ params }: { params: Promise<{ hash: string }> }) {
   const { hash } = use(params);
+  const { fid } = useSession();
   const [root, setRoot] = useState<PostView | null>(null);
   const [replies, setReplies] = useState<PostView[]>([]);
   const [proof, setProof] = useState<Proof | null>(null);
@@ -39,14 +40,14 @@ export default function Thread({ params }: { params: Promise<{ hash: string }> }
 
   const load = useCallback(() => {
     relay
-      .thread(hash as Hex)
+      .thread(hash as Hex, fid ?? undefined)
       .then((t) => {
         setRoot(t.root);
         setReplies(t.replies);
       })
       .catch((e) => setErr(errMsg(e)));
     relay.proof(hash as Hex).then(setProof).catch(() => undefined);
-  }, [hash]);
+  }, [hash, fid]);
   useEffect(load, [load]);
 
   /** Ask the Anchor contract directly: is this message in the anchored Merkle root? */

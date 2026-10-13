@@ -31,7 +31,9 @@ export type MessageType =
   | "view"
   | "chat"
   | "label"
-  | "profile";
+  | "profile"
+  | "mute"
+  | "block";
 
 export interface MediaItem {
   uri: string;
@@ -111,6 +113,15 @@ export interface ProfileBody {
   location?: string; // <= 50 chars
 }
 
+/**
+ * Mute: hide someone from your feeds and notifications. Block: also stops them replying to you, and hides
+ * you from them. Both are signed, so every client on the protocol respects them. `undo` reverses.
+ */
+export interface RelationBody {
+  targetFid: number;
+  undo?: boolean;
+}
+
 export const PROFILE_LIMITS = { displayName: 50, bio: 280, location: 50, url: 200, image: 300 } as const;
 
 export type BodyFor<T extends MessageType> = T extends "post"
@@ -131,7 +142,9 @@ export type BodyFor<T extends MessageType> = T extends "post"
                 ? LabelBody
                 : T extends "profile"
                   ? ProfileBody
-                  : never;
+                  : T extends "mute" | "block"
+                    ? RelationBody
+                    : never;
 
 export interface MessageData<T extends MessageType = MessageType> {
   type: T;
@@ -193,4 +206,18 @@ export interface PostView {
   authorFollowers: number;
   authorReputation: number;
   anchored: boolean;
+  /** the requesting viewer's own reactions, when the request names a viewer */
+  viewer?: { like: Hex | null; repost: Hex | null; backed: boolean };
+}
+
+export type NotificationKind = "like" | "repost" | "reply" | "mention" | "follow" | "back" | "invite";
+
+export interface Notification {
+  id: string;
+  kind: NotificationKind;
+  actor: { fid: number; handle: string | null; displayName: string | null; avatar: string | null };
+  /** post the notification is about (your post that was liked, or the reply/mention itself) */
+  post: { hash: Hex; text: string } | null;
+  community: { id: number; name: string } | null;
+  at: number;
 }

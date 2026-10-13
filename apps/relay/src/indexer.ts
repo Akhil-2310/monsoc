@@ -261,6 +261,15 @@ async function handle(log: Log, ev: Decoded) {
     case "CustomRolesSet":
       run("UPDATE members SET custom_roles = ? WHERE community_id = ? AND fid = ?", String(a.mask), n(a.cid), n(a.fid));
       break;
+    case "Invited":
+      run(
+        "INSERT OR REPLACE INTO invites(community_id, fid, by_fid, at) VALUES(?,?,?,?)",
+        n(a.cid),
+        n(a.fid),
+        n(a.byFid),
+        at,
+      );
+      break;
     case "BanSet":
       run(
         `INSERT INTO members(community_id, fid, role, banned, joined_at) VALUES(?,?,0,?,?)

@@ -19,6 +19,7 @@ import {
   type ChatBody,
   type LabelBody,
   type ProfileBody,
+  type RelationBody,
 } from "@monsoc/sdk";
 import { config } from "./config";
 import { get, run, tx } from "./db";
@@ -152,8 +153,10 @@ async function validateBody(msg: SignedMessage) {
       const mediaErrs = validateMedia(p.media);
       if (mediaErrs.length) reject(mediaErrs.join("; "));
       if (type === "reply") {
-        const parent = get("SELECT 1 FROM posts WHERE hash = ? AND deleted = 0", (b as unknown as ReplyBody).parent);
+        const parent = get<{ fid: number }>("SELECT fid FROM posts WHERE hash = ? AND deleted = 0", (b as unknown as ReplyBody).parent);
         if (!parent) reject("unknown parent");
+        if (get("SELECT 1 FROM relations WHERE fid = ? AND target = ? AND kind = 'block'", parent!.fid, fid))
+          reject("you can't reply to this account");
       }
       if (type === "trial-post") {
         const t = (b as unknown as TrialBody).trial;
@@ -201,6 +204,13 @@ async function validateBody(msg: SignedMessage) {
     case "label": {
       const l = b as unknown as LabelBody;
       if (!Array.isArray(l.labels) || l.labels.length === 0) reject("labels required");
+      break;
+    }
+    case "mute":
+    case "block": {
+      const r = b as unknown as RelationBody;
+      if (!Number.isInteger(r.targetFid) || r.targetFid === fid) reject("bad target");
+      if (!get("SELECT 1 FROM users WHERE fid = ?", r.targetFid)) reject("unknown account");
       break;
     }
     case "profile": {
@@ -254,6 +264,12 @@ function apply(msg: SignedMessage) {
         p.trial?.groupId ?? null,
       );
       for (const t of tags) run("INSERT OR IGNORE INTO post_tags(hash, tag) VALUES(?,?)", msg.hash, t);
+      // @mentions notify (trials stay quiet until released, so strangers' tests don't ping people)
+      if (type !== "trial-post")
+        for (const m of new Set([...p.text.matchAll(/(^|[^\w@])@([a-z0-9_]{1,16})\b/gi)].map((x) => x[2]!.toLowerCase()))) {
+          const u = get<{ fid: number }>("SELECT fid FROM users WHERE handle = ?", m);
+          if (u && u.fid !== fid) run("INSERT OR IGNORE INTO mentions(hash, fid, author, ts) VALUES(?,?,?,?)", msg.hash, u.fid, fid, ts);
+        }
       break;
     }
     case "like":
@@ -306,6 +322,11 @@ function apply(msg: SignedMessage) {
         ts,
         JSON.stringify(msg),
       );
+      break;
+    case "mute":
+    case "block":
+      if (b.undo) run("DELETE FROM relations WHERE fid = ? AND target = ? AND kind = ?", fid, b.targetFid, type);
+      else run("INSERT OR IGNORE INTO relations(fid, target, kind, ts) VALUES(?,?,?,?)", fid, b.targetFid, type, ts);
       break;
     case "profile": {
       // newest timestamp wins; an older message arriving late (e.g. from a peer) doesn't overwrite

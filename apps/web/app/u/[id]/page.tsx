@@ -14,7 +14,7 @@ type Back = { creator: number; handle: string | null; at: number; from: number |
 
 export default function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { fid, following, setFollow, logout, refresh } = useSession();
+  const { fid, following, setFollow, logout, refresh, muted, blocked, setRelation } = useSession();
   const [editing, setEditing] = useState(false);
   const router = useRouter();
   const [p, setP] = useState<Profile | null>(null);
@@ -28,12 +28,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       .user(id)
       .then(async (u) => {
         setP(u);
-        const [ps, bs] = await Promise.all([relay.userPosts(u.fid), relay.backs(u.fid)]);
+        const [ps, bs] = await Promise.all([relay.userPosts(u.fid, fid ?? undefined), relay.backs(u.fid)]);
         setPosts(ps);
         setBacks(bs);
       })
       .catch((e) => setErr(errMsg(e)));
-  }, [id]);
+  }, [id, fid]);
 
   if (err) return <Shell><p className="p-6 text-bad">{err}</p></Shell>;
   if (!p) return <Shell><p className="p-6 text-muted">Loading…</p></Shell>;
@@ -76,12 +76,28 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
               </div>
             ) : (
               fid && (
-                <button
-                  className={isFollowing ? "btn-ghost" : "btn-primary"}
-                  onClick={() => setFollow(p.fid, !isFollowing).catch((e) => setErr(errMsg(e)))}
-                >
-                  {isFollowing ? "Following" : "Follow"}
-                </button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {!blocked.has(p.fid) && (
+                    <button
+                      className={isFollowing ? "btn-ghost" : "btn-primary"}
+                      onClick={() => setFollow(p.fid, !isFollowing).catch((e) => setErr(errMsg(e)))}
+                    >
+                      {isFollowing ? "Following" : "Follow"}
+                    </button>
+                  )}
+                  <button className="btn-ghost btn-sm" onClick={() => setRelation("mute", p.fid, !muted.has(p.fid)).catch((e) => setErr(errMsg(e)))}>
+                    {muted.has(p.fid) ? "Unmute" : "Mute"}
+                  </button>
+                  <button
+                    className="btn-ghost btn-sm text-bad"
+                    onClick={() =>
+                      (blocked.has(p.fid) || confirm(`Block @${p.handle}? They won't be able to reply to you, and you won't see each other's posts.`)) &&
+                      setRelation("block", p.fid, !blocked.has(p.fid)).catch((e) => setErr(errMsg(e)))
+                    }
+                  >
+                    {blocked.has(p.fid) ? "Unblock" : "Block"}
+                  </button>
+                </div>
               )
             )}
           </div>
@@ -90,6 +106,11 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             {p.scoutTier && <span className="chip bg-accent-soft text-accent">◆ {p.scoutTier} scout</span>}
           </div>
           {p.displayName && <p className="text-sm text-muted">@{p.handle ?? p.fid}</p>}
+          {!isMe && (blocked.has(p.fid) || muted.has(p.fid)) && (
+            <p className="mt-2 rounded-lg bg-panel-2 px-3 py-2 text-xs text-muted">
+              {blocked.has(p.fid) ? "You blocked this account. Their posts are hidden and they can't reply to you." : "You muted this account. Their posts and notifications are hidden from you."}
+            </p>
+          )}
           {p.bio && <p className="mt-2 whitespace-pre-wrap break-words text-[15px]">{p.bio}</p>}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
             {p.location && <span>⌖ {p.location}</span>}

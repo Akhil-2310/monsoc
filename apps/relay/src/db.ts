@@ -238,6 +238,32 @@ CREATE TABLE IF NOT EXISTS profiles (
   hash TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS relations (
+  fid INTEGER NOT NULL,
+  target INTEGER NOT NULL,
+  kind TEXT NOT NULL, -- 'mute' | 'block'
+  ts INTEGER NOT NULL,
+  PRIMARY KEY (fid, target, kind)
+);
+CREATE INDEX IF NOT EXISTS relations_target ON relations(target, kind);
+
+CREATE TABLE IF NOT EXISTS invites (
+  community_id INTEGER NOT NULL,
+  fid INTEGER NOT NULL,
+  by_fid INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (community_id, fid)
+);
+
+CREATE TABLE IF NOT EXISTS mentions (
+  hash TEXT NOT NULL,
+  fid INTEGER NOT NULL, -- mentioned
+  author INTEGER NOT NULL,
+  ts INTEGER NOT NULL,
+  PRIMARY KEY (hash, fid)
+);
+CREATE INDEX IF NOT EXISTS mentions_fid ON mentions(fid, ts);
+
 -- ---------------------------------------------------------------- derived
 CREATE TABLE IF NOT EXISTS reputation (
   fid INTEGER PRIMARY KEY,
