@@ -54,7 +54,38 @@ pnpm contracts:test
 pnpm --filter @monsoc/sdk test
 ```
 
-## Monad testnet
+## Deployed: Monad testnet (chain 10143)
+
+Deployed from block 70755753. Explorer: https://testnet.monadexplorer.com
+
+| Contract | Address |
+|---|---|
+| identity | `0x4174F8D9876899195a6628C011002D99371B3355` |
+| appKeys | `0x7510BE2dAB2C04f62699F49eD1c3f6f10d503Cb5` |
+| signup | `0x8eBCC90671b7081915fB00D9450edbEf8b2953b6` |
+| follows | `0x20957Bc80a020DA6050D61AEAfC1Ffcd99a26E4E` |
+| feeds | `0x30b934F8fef8c8A1B1B091BeCbc93AEa5f57f5B0` |
+| payments | `0xCb3495cB6975b13e43e218a85c54426115A2CD5B` |
+| anchor | `0x9e23BfDF68d205A9d45Bc24cE8acb0faE63485fe` |
+| communities | `0x745E4474D8393a9596E5c0297cDF9ecf6D329e8b` |
+| scouts | `0xf27EF7D19DcABea9EE4C29d7D178bB194cFCfD2e` |
+| forwarder | `0xdf41D66aF04532A26e082978c01b4ea9c4955Eb3` |
+| oracle | `0xE83B22b69d62e61170aC5b2B60ADdF91B5EA4B2d` |
+| tusd | `0x3258CB92edc5AF449B865dc091b7f770f52a2f2C` |
+
+Run against it locally:
+
+```bash
+pnpm relay:testnet
+```
+
+```bash
+pnpm web:testnet
+```
+
+Keys live in gitignored `contracts/.env.testnet` and `apps/relay/.env.testnet` (templates: `.env.example`).
+
+## Deploying to Monad testnet yourself
 
 ```bash
 export MONAD_RPC_URL=https://testnet-rpc.monad.xyz

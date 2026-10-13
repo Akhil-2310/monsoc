@@ -4,7 +4,19 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@monsoc/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@monsoc/web",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "web-testnet",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "web:testnet"
+      ],
       "port": 3000
     }
   ]
