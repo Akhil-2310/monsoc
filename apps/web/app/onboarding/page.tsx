@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { CommunityInfo, Profile } from "@monsoc/sdk";
 import { communitiesAbi, followsAbi } from "@monsoc/sdk";
 import { useSession, relay, deployment } from "@/lib/session";
-import { providers } from "@/lib/custody";
+import { providers, isPrfUnsupported, type CustodyProvider } from "@/lib/custody";
 import { Avatar } from "@/components/Avatar";
 import { errMsg } from "@/lib/format";
 import cfg from "@/monsoc.config";
@@ -17,7 +17,7 @@ type Suggestions = {
 
 export default function Onboarding() {
   const router = useRouter();
-  const { fid, custody, signup, login, loginDemo, call } = useSession();
+  const { fid, custody, signup, login, call } = useSession();
   const [step, setStep] = useState<"account" | "seed">("account");
   const [handle, setHandle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,27 +40,37 @@ export default function Onboarding() {
     });
   }, [step, custody, fid]);
 
-  const create = async () => {
+  const explain = (e: unknown) =>
+    isPrfUnsupported(e)
+      ? "This passkey manager doesn't support the PRF extension yet. Try iCloud Keychain, 1Password or Google Password Manager."
+      : (e as { name?: string })?.name === "NotAllowedError" || /NotAllowed|cancel/i.test(errMsg(e))
+        ? "Passkey prompt was cancelled."
+        : errMsg(e);
+
+  const create = async (provider: CustodyProvider) => {
     setBusy(true);
     setErr(null);
     try {
-      await signup(providers[0]!, handle);
+      // check the handle before the passkey prompt, so nobody makes a passkey for a taken name
+      const taken = await relay.user(handle).then(() => true, () => false);
+      if (taken) throw new Error(`@${handle} is taken`);
+      await signup(provider, handle);
       setStep("seed");
     } catch (e) {
-      setErr(errMsg(e));
+      setErr(explain(e));
     } finally {
       setBusy(false);
     }
   };
 
-  const signIn = async () => {
+  const signIn = async (provider: CustodyProvider) => {
     setBusy(true);
     setErr(null);
     try {
-      if (await login(providers[0]!)) router.push("/");
-      else setErr("No account for this device yet. Pick a handle to create one.");
+      if (await login(provider)) router.push("/");
+      else setErr("No account for this passkey yet. Pick a handle to create one.");
     } catch (e) {
-      setErr(errMsg(e));
+      setErr(explain(e));
     } finally {
       setBusy(false);
     }
@@ -116,35 +126,20 @@ export default function Onboarding() {
               onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
             />
           </div>
-          <button className="btn-primary mt-3 w-full" disabled={busy || !handle} onClick={create}>
-            {busy ? "Creating…" : "Create account"}
-          </button>
-          <button className="btn-ghost mt-2 w-full" disabled={busy} onClick={signIn}>
-            I already have an account on this device
-          </button>
-          <p className="mt-3 text-[11px] text-muted">
-            Signing with: {providers[0]!.label}. A passkey wallet plugs in at <code>apps/web/lib/custody.ts</code>.
-          </p>
-          {cfg.demoLogins && (
-            <div className="mt-5 border-t border-line pt-4">
-              <p className="mb-2 text-xs text-muted">Demo: try a seeded account</p>
-              <div className="flex flex-wrap gap-2">
-                {cfg.demoHandles.map((h) => (
-                  <button
-                    key={h}
-                    className="btn-ghost btn-sm"
-                    onClick={() =>
-                      loginDemo(h)
-                        .then(() => router.push("/"))
-                        .catch((e) => setErr(errMsg(e)))
-                    }
-                  >
-                    @{h}
-                  </button>
-                ))}
-              </div>
+          {providers.map((p, n) => (
+            <div key={p.id} className={n ? "mt-4 border-t border-line pt-4" : ""}>
+              <button className={`${n ? "btn-ghost" : "btn-primary"} mt-3 w-full`} disabled={busy || !handle} onClick={() => create(p)}>
+                {busy ? "Waiting for passkey…" : n ? `Create with ${p.label}` : "Create account with passkey"}
+              </button>
+              <button className="btn-ghost mt-2 w-full" disabled={busy} onClick={() => signIn(p)}>
+                {n ? `Sign in with ${p.label}` : "Sign in with passkey"}
+              </button>
             </div>
-          )}
+          ))}
+          <p className="mt-3 text-[11px] text-muted">
+            Your passkey derives your account on this device (via Mera). Nothing is stored on a server, and the same passkey restores your account on
+            any device it syncs to.
+          </p>
           {err && <p className="mt-3 text-sm text-bad">{err}</p>}
         </div>
       )}
@@ -155,6 +150,7 @@ export default function Onboarding() {
             <h2 className="text-lg font-semibold">Your communities</h2>
             <p className="text-sm text-muted">Based on the tokens and apps in your wallet, plus what's active right now.</p>
             {!sugg && <p className="mt-3 text-sm text-muted">Reading your wallet…</p>}
+            {sugg?.communities.length === 0 && <p className="mt-3 text-sm text-muted">No communities yet. You can start one after this.</p>}
             <div className="mt-3 space-y-2">
               {sugg?.communities.map((c) => (
                 <label key={c.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-line p-3 hover:bg-panel-2">
@@ -171,6 +167,7 @@ export default function Onboarding() {
 
           <div className="card p-5">
             <h2 className="text-lg font-semibold">People to follow</h2>
+            {sugg && sugg.people.filter((p) => p.fid !== fid).length === 0 && <p className="mt-2 text-sm text-muted">You're early. Nobody to suggest yet.</p>}
             <div className="mt-2 flex flex-wrap gap-2">
               {sugg?.starterPacks.map((sp) => (
                 <button key={sp.id} className="btn-ghost btn-sm" onClick={() => setPickP(new Set([...pickP, ...sp.fids]))}>
@@ -194,7 +191,7 @@ export default function Onboarding() {
             </div>
           </div>
           <button className="btn-primary w-full" disabled={busy} onClick={finish}>
-            {busy ? "Following & joining…" : `Follow ${pickP.size} · join ${pickC.size} · enter feed`}
+            {busy ? "Following & joining…" : pickP.size || pickC.size ? `Follow ${pickP.size} · join ${pickC.size} · enter feed` : "Enter feed"}
           </button>
           {err && <p className="text-sm text-bad">{err}</p>}
         </div>

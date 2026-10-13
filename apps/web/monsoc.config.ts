@@ -26,9 +26,8 @@ const config = {
     markets: false, // creator markets are v2 and gated by country
   },
 
-  /** dev chains only: one-click "try as @handle" logins for the seeded demo accounts */
-  demoLogins: process.env.NEXT_PUBLIC_DEMO_LOGINS !== "false",
-  demoHandles: ["arjun", "meera", "ira", "sam", "rohan", "zoya"],
+  /** also offer a browser-stored key, for testing on authenticators without passkey PRF support */
+  devKeyLogin: process.env.NEXT_PUBLIC_DEV_KEY_LOGIN === "true",
 };
 
 export default config;

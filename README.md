@@ -33,16 +33,16 @@ pnpm relay
 ```
 
 ```bash
-pnpm seed
+pnpm bootstrap
 ```
 
 ```bash
 pnpm web
 ```
 
-Open http://localhost:3000. On the sign-up page you can create a fresh account, or click a seeded demo account (`@sam`, `@ira`, …).
+Open http://localhost:3000 and create an account with a passkey.
 
-`pnpm seed` builds a living network through the real protocol paths: 16 creators, an onchain follow graph, 7 feeds (6 rule-based, 1 paid hosted), 6 communities covering every join type, posts and conversations, an A/B trial reel, Backs, views and chat.
+`pnpm bootstrap` creates only what the protocol needs: the operator account (@monsoc, which runs the default labeler) and the default feeds. There's no sample data. For a local demo with sample accounts and posts, `pnpm seed:demo` is still available; don't run it on a real deployment.
 
 Tests:
 
@@ -97,7 +97,8 @@ Run the relay with `CHAIN_ID=10143 RPC_URL=$MONAD_RPC_URL RELAY_PRIVATE_KEY=0x..
 
 ## Design decisions to review
 
-* **Custody provider.** `apps/web/lib/custody.ts` ships a burner key (dev) and seeded demo logins. A passkey wallet (Privy, Mera, …) plugs in by implementing `connect()` → `{ address, signTypedData }`. Contracts verify custody signatures with ERC-1271, so smart accounts work, but the account **must be deployed** before signing (OZ `SignatureChecker` doesn't do ERC-6492).
+* **Passkeys via [Mera](https://mera.category.xyz/).** `apps/web/lib/custody.ts`: a passkey's PRF output derives two keys. The **custody** key (`m/44'/60'/0'/0/0`) controls the identity, lives only inside a Mera signing session during sign-up and sign-in, and is never stored. The **app key** (`m/44'/60'/0'/0/1`) is scoped and revocable, cached by the client, and re-derived on any device the passkey syncs to, so a new device needs no extra signature. Custody is a plain EOA, so no smart-account deployment and no ERC-1271 caveats. Needs HTTPS (or localhost) and a PRF-capable authenticator (iCloud Keychain, 1Password, Google Password Manager). `NEXT_PUBLIC_DEV_KEY_LOGIN=true` adds a browser-key fallback for testing.
+* **Passkeys are domain-bound.** A forked client on another domain gets a different passkey, so it would see a different identity. Before other clients launch, add WebAuthn Related Origin Requests (`/.well-known/webauthn` listing allowed origins), or a "sign in with your home client" flow where the home client's custody signs `AddKey` for the new client.
 * **Feed and community metadata** go onchain as `data:` URIs for zero-dependency demos. Use `ipfs://` in production: the indexer already resolves it.
 * **The test stablecoin trusts the forwarder** so app keys can approve gaslessly. With real USDC, use EIP-2612 / EIP-3009 permits instead.
 * **MON price** comes from `AdminPriceOracle`, an operator-set testnet stand-in for a real oracle or DEX TWAP (open question in the spec).

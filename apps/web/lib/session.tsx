@@ -11,6 +11,7 @@ import {
   signupTypedData,
   addKeyTypedData,
   followsAbi,
+  appKeysAbi,
   Scopes,
   KeyTypes,
   type BodyFor,
@@ -21,7 +22,7 @@ import {
   type SignedMessage,
 } from "@monsoc/sdk";
 import cfg from "@/monsoc.config";
-import { demoCustody, demoKey, type CustodyProvider } from "./custody";
+import type { CustodyProvider } from "./custody";
 
 export const relay = new RelayClient(cfg.relayUrl);
 export const deployment: Deployment = getDeployment(cfg.chainId);
@@ -32,7 +33,6 @@ const K = {
   fid: "monsoc.fid",
   custody: "monsoc.custodyAddr",
   seq: (fid: number) => `monsoc.seq.${fid}`,
-  demo: "monsoc.demo",
 };
 
 interface Session {
@@ -44,7 +44,6 @@ interface Session {
   following: Set<number>;
   signup(provider: CustodyProvider, handle: string): Promise<void>;
   login(provider: CustodyProvider): Promise<boolean>;
-  loginDemo(handle: string): Promise<void>;
   logout(): void;
   send<T extends MessageType>(type: T, body: BodyFor<T>): Promise<SignedMessage<T>>;
   call(to: Address, abi: Abi | readonly unknown[], functionName: string, args: readonly unknown[]): Promise<Hex>;
@@ -104,8 +103,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [loadUser],
   );
 
-  const authorizeNewKey = useCallback(async (signer: CustodySigner, f: number): Promise<Hex> => {
-    const key = generatePrivateKey();
+  /** Custody signs AddKey for a new app key on this device; the relay submits it gaslessly. */
+  const authorizeNewKey = useCallback(async (signer: CustodySigner, f: number, preferred?: Hex): Promise<Hex> => {
+    const key = preferred ?? generatePrivateKey();
     const acct = privateKeyToAccount(key);
     const nonce = await relay.keyNonce(signer.address);
     const m = {
@@ -123,59 +123,79 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return key;
   }, []);
 
+  /** Pick an app key for this fid: the one stored here, the passkey-derived one, or a fresh one. */
+  const chooseKey = useCallback(
+    async (signer: CustodySigner, f: number, derived?: Hex): Promise<Hex> => {
+      const stored = localStorage.getItem(K.appKey) as Hex | null;
+      if (stored && Number(localStorage.getItem(K.fid)) === f) return stored;
+      if (derived) {
+        const addr = privateKeyToAccount(derived).address;
+        const k = await publicClient.readContract({
+          address: deployment.appKeys,
+          abi: appKeysAbi,
+          functionName: "keyOf",
+          args: [BigInt(f), addr.toLowerCase() as Hex],
+        });
+        if (k.addedAt === 0n) return authorizeNewKey(signer, f, derived);
+        const active = !k.revoked && (k.expiry === 0n || k.expiry * 1000n > BigInt(Date.now()));
+        if (active) return derived; // same passkey on a new device: nothing to sign
+      }
+      return authorizeNewKey(signer, f); // derived key was revoked: use a fresh one
+    },
+    [authorizeNewKey],
+  );
+
   const signup = useCallback(
     async (provider: CustodyProvider, handle: string) => {
-      const signer = await provider.connect();
-      const existing = await relay.userByCustody(signer.address);
-      if (existing) {
-        await adopt(existing.fid, await authorizeNewKey(signer, existing.fid), signer.address);
-        return;
+      const conn = await provider.create(handle.toLowerCase());
+      try {
+        const signer = conn.custody;
+        const existing = await relay.userByCustody(signer.address);
+        if (existing) {
+          await adopt(existing.fid, await chooseKey(signer, existing.fid, conn.appKey), signer.address);
+          return;
+        }
+        const key = conn.appKey ?? generatePrivateKey();
+        const acct = privateKeyToAccount(key);
+        const nonce = await relay.signupNonce(signer.address);
+        const params = {
+          custody: signer.address,
+          recovery: signer.address,
+          handle: handle.toLowerCase(),
+          keyType: KeyTypes.SECP256K1,
+          key: acct.address.toLowerCase() as Hex,
+          scope: Scopes.FULL,
+          expiry: 0n,
+          clientFid: 0n,
+          deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+        };
+        const sig = await signer.signTypedData(signupTypedData(cfg.chainId, deployment.signup, params, nonce) as never);
+        const { fid: f } = await relay.signup(params, sig);
+        await adopt(f, key, signer.address);
+      } finally {
+        conn.end();
       }
-      const key = generatePrivateKey();
-      const acct = privateKeyToAccount(key);
-      const nonce = await relay.signupNonce(signer.address);
-      const params = {
-        custody: signer.address,
-        recovery: signer.address,
-        handle: handle.toLowerCase(),
-        keyType: KeyTypes.SECP256K1,
-        key: acct.address.toLowerCase() as Hex,
-        scope: Scopes.FULL,
-        expiry: 0n,
-        clientFid: 0n,
-        deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
-      };
-      const sig = await signer.signTypedData(signupTypedData(cfg.chainId, deployment.signup, params, nonce) as never);
-      const { fid: f } = await relay.signup(params, sig);
-      await adopt(f, key, signer.address);
     },
-    [adopt, authorizeNewKey],
+    [adopt, chooseKey],
   );
 
   const login = useCallback(
     async (provider: CustodyProvider) => {
-      const signer = await provider.connect();
-      const existing = await relay.userByCustody(signer.address);
-      if (!existing) return false;
-      const stored = localStorage.getItem(K.appKey) as Hex | null;
-      const key = stored && Number(localStorage.getItem(K.fid)) === existing.fid ? stored : await authorizeNewKey(signer, existing.fid);
-      await adopt(existing.fid, key, signer.address);
-      return true;
+      const conn = await provider.connect();
+      try {
+        const existing = await relay.userByCustody(conn.custody.address);
+        if (!existing) return false;
+        await adopt(existing.fid, await chooseKey(conn.custody, existing.fid, conn.appKey), conn.custody.address);
+        return true;
+      } finally {
+        conn.end();
+      }
     },
-    [adopt, authorizeNewKey],
-  );
-
-  const loginDemo = useCallback(
-    async (handle: string) => {
-      const p = await relay.user(handle);
-      localStorage.setItem(K.demo, handle);
-      await adopt(p.fid, demoKey(handle, "app"), demoCustody(handle).address);
-    },
-    [adopt],
+    [adopt, chooseKey],
   );
 
   const logout = useCallback(() => {
-    for (const k of [K.appKey, K.fid, K.custody, K.demo]) localStorage.removeItem(k);
+    for (const k of [K.appKey, K.fid, K.custody]) localStorage.removeItem(k);
     setFid(null);
     setProfile(null);
     setAppKey(null);
@@ -244,8 +264,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [fid, loadUser]);
 
   const value = useMemo<Session>(
-    () => ({ ready, fid, profile, custody, appKey, following, signup, login, loginDemo, logout, send, call, setFollow, refresh }),
-    [ready, fid, profile, custody, appKey, following, signup, login, loginDemo, logout, send, call, setFollow, refresh],
+    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, send, call, setFollow, refresh }),
+    [ready, fid, profile, custody, appKey, following, signup, login, logout, send, call, setFollow, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

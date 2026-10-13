@@ -2,7 +2,7 @@
  * Seeds a living network through the real protocol paths (signed signup, sponsored forwarder calls,
  * signed messages to the relay), so the demo feed is full from the first minute.
  *
- *   pnpm seed            (relay must be running)
+ *   pnpm seed:demo       (relay must be running; local demos only, creates sample accounts and posts)
  */
 import { encodeFunctionData, keccak256, toBytes, type Address, type Hex, type LocalAccount } from "viem";
 import { privateKeyToAccount } from "viem/accounts";

@@ -10,10 +10,11 @@
     "deploy:testnet": "cd contracts && forge script script/Deploy.s.sol --rpc-url $MONAD_RPC_URL --broadcast && cd .. && pnpm gen",
     "gen": "node scripts/gen-sdk.mjs",
     "relay": "pnpm --filter @monsoc/relay dev",
-    "seed": "pnpm --filter @monsoc/relay seed",
     "web": "pnpm --filter @monsoc/web dev",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "bootstrap": "pnpm --filter @monsoc/relay bootstrap",
+    "seed:demo": "pnpm --filter @monsoc/relay seed:demo"
   },
   "devDependencies": {
     "typescript": "5.8"

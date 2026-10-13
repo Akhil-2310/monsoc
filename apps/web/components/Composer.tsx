@@ -7,7 +7,7 @@ import { errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
 import cfg from "@/monsoc.config";
 
-const DEMO_REEL = "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi";
+const VIDEO = /\.(mp4|webm|mov|m3u8)(\?|$)/i;
 
 export function Composer({
   parent,
@@ -27,7 +27,8 @@ export function Composer({
   const [trial, setTrial] = useState(false);
   const [variantB, setVariantB] = useState("");
   const [abTest, setAbTest] = useState(false);
-  const [reel, setReel] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState("");
   const [autoRelease, setAutoRelease] = useState(true);
   const [communityId, setCommunityId] = useState<number | undefined>(community);
   const [myCommunities, setMyCommunities] = useState<{ id: number; name: string }[]>([]);
@@ -47,7 +48,9 @@ export function Composer({
     setBusy(true);
     setErr(null);
     try {
-      const media = reel ? [{ uri: DEMO_REEL, kind: "video" as const, durationMs: 45_000 }] : undefined;
+      const url = mediaUrl.trim();
+      if (url && !/^(ipfs:\/\/|https:\/\/)/.test(url)) throw new Error("Media must be an ipfs:// or https:// link");
+      const media = url ? [{ uri: url, kind: VIDEO.test(url) ? ("video" as const) : ("image" as const) }] : undefined;
       if (parent) {
         await send("reply", { text, parent, community: communityId });
       } else if (trial) {
@@ -65,7 +68,8 @@ export function Composer({
       setVariantB("");
       setTrial(false);
       setAbTest(false);
-      setReel(false);
+      setMediaUrl("");
+      setMediaOpen(false);
       onPosted?.();
     } catch (e) {
       setErr(errMsg(e));
@@ -96,6 +100,14 @@ export function Composer({
               onChange={(e) => setVariantB(e.target.value)}
             />
           )}
+          {mediaOpen && (
+            <input
+              className="input mt-2"
+              placeholder="ipfs://… or https://… link to an image or video (mp4, webm)"
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+            />
+          )}
           {trial && (
             <div className="mt-2 rounded-xl border border-accent/40 bg-accent-soft p-3 text-xs text-muted">
               <p className="text-text">
@@ -119,8 +131,8 @@ export function Composer({
               </button>
             )}
             {!parent && (
-              <button className={`btn-ghost btn-sm ${reel ? "border-accent text-accent" : ""}`} onClick={() => setReel(!reel)} title="Attach a demo reel (IPFS hash)">
-                ▶ Reel
+              <button className={`btn-ghost btn-sm ${mediaOpen ? "border-accent text-accent" : ""}`} onClick={() => setMediaOpen(!mediaOpen)} title="Attach an image or video by link">
+                ▶ Media
               </button>
             )}
             {!parent && community === undefined && myCommunities.length > 0 && (

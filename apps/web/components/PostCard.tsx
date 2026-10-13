@@ -179,14 +179,15 @@ export function PostCard({
               <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
                 <RichText text={post.text} />
               </p>
-              {post.media?.map((m) => (
-                <div key={m.uri} className="mt-2 flex aspect-video items-center justify-center rounded-xl border border-line bg-gradient-to-br from-panel-2 to-bg text-muted">
-                  <div className="text-center">
-                    <div className="text-3xl">▶</div>
-                    <div className="mt-1 text-xs">{m.kind === "video" ? `Reel · ${Math.round((m.durationMs ?? 0) / 1000)}s` : "Image"} · {m.uri.slice(0, 22)}…</div>
-                  </div>
-                </div>
-              ))}
+              {post.media?.map((m) => {
+                const src = m.uri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${m.uri.slice(7)}` : m.uri;
+                return m.kind === "video" ? (
+                  <video key={m.uri} src={src} controls playsInline preload="metadata" className="mt-2 max-h-[480px] w-full rounded-xl border border-line bg-black" onClick={(e) => e.preventDefault()} />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={m.uri} src={src} alt="" loading="lazy" className="mt-2 max-h-[480px] w-full rounded-xl border border-line object-cover" />
+                );
+              })}
             </Link>
           )}
 

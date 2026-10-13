@@ -81,6 +81,7 @@ function HomeAside() {
 
   return (
     <div className="space-y-4">
+      {people.some((p) => p.fid !== fid && !following.has(p.fid)) && (
       <div className="card p-4">
         <h3 className="mb-3 text-sm font-semibold">Who to follow</h3>
         {people
@@ -101,6 +102,7 @@ function HomeAside() {
             </div>
           ))}
       </div>
+      )}
       {cfg.plugins.scouts && scouts.length > 0 && (
         <div className="card p-4">
           <h3 className="mb-3 text-sm font-semibold">Top scouts</h3>
