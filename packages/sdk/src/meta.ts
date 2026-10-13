@@ -31,7 +31,8 @@ export function forwarderDomain(chainId: number, forwarder: Address): TypedDataD
 }
 
 export async function signForwardRequest(
-  account: LocalAccount,
+  /** an app key, or the custody itself (EOA) for owner-only calls like changing the handle */
+  account: Pick<LocalAccount, "address" | "signTypedData">,
   args: {
     chainId: number;
     forwarder: Address;

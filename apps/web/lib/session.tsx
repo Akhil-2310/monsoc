@@ -12,6 +12,7 @@ import {
   addKeyTypedData,
   followsAbi,
   appKeysAbi,
+  identityAbi,
   Scopes,
   KeyTypes,
   type BodyFor,
@@ -22,7 +23,7 @@ import {
   type SignedMessage,
 } from "@monsoc/sdk";
 import cfg from "@/monsoc.config";
-import type { CustodyProvider } from "./custody";
+import { meraProvider, deviceProvider, type CustodyProvider } from "./custody";
 
 export const relay = new RelayClient(cfg.relayUrl);
 export const deployment: Deployment = getDeployment(cfg.chainId);
@@ -32,6 +33,7 @@ const K = {
   appKey: "monsoc.appKey",
   fid: "monsoc.fid",
   custody: "monsoc.custodyAddr",
+  provider: "monsoc.provider",
   seq: (fid: number) => `monsoc.seq.${fid}`,
 };
 
@@ -45,6 +47,8 @@ interface Session {
   signup(provider: CustodyProvider, handle: string): Promise<void>;
   login(provider: CustodyProvider): Promise<boolean>;
   logout(): void;
+  /** Owner-only: re-derives the custody key (passkey prompt) and changes the onchain handle. */
+  changeHandle(handle: string): Promise<void>;
   send<T extends MessageType>(type: T, body: BodyFor<T>): Promise<SignedMessage<T>>;
   call(to: Address, abi: Abi | readonly unknown[], functionName: string, args: readonly unknown[]): Promise<Hex>;
   setFollow(target: number, on: boolean): Promise<void>;
@@ -89,7 +93,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [loadUser]);
 
   const adopt = useCallback(
-    async (f: number, key: Hex, c: Address) => {
+    async (f: number, key: Hex, c: Address, providerId: string) => {
+      localStorage.setItem(K.provider, providerId);
       localStorage.setItem(K.appKey, key);
       localStorage.setItem(K.fid, String(f));
       localStorage.setItem(K.custody, c);
@@ -152,7 +157,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const signer = conn.custody;
         const existing = await relay.userByCustody(signer.address);
         if (existing) {
-          await adopt(existing.fid, await chooseKey(signer, existing.fid, conn.appKey), signer.address);
+          await adopt(existing.fid, await chooseKey(signer, existing.fid, conn.appKey), signer.address, provider.id);
           return;
         }
         const key = conn.appKey ?? generatePrivateKey();
@@ -171,7 +176,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         };
         const sig = await signer.signTypedData(signupTypedData(cfg.chainId, deployment.signup, params, nonce) as never);
         const { fid: f } = await relay.signup(params, sig);
-        await adopt(f, key, signer.address);
+        await adopt(f, key, signer.address, provider.id);
       } finally {
         conn.end();
       }
@@ -185,7 +190,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const existing = await relay.userByCustody(conn.custody.address);
         if (!existing) return false;
-        await adopt(existing.fid, await chooseKey(conn.custody, existing.fid, conn.appKey), conn.custody.address);
+        await adopt(existing.fid, await chooseKey(conn.custody, existing.fid, conn.appKey), conn.custody.address, provider.id);
         return true;
       } finally {
         conn.end();
@@ -195,7 +200,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    for (const k of [K.appKey, K.fid, K.custody]) localStorage.removeItem(k);
+    for (const k of [K.appKey, K.fid, K.custody, K.provider]) localStorage.removeItem(k);
     setFid(null);
     setProfile(null);
     setAppKey(null);
@@ -265,13 +270,62 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [fid, call],
   );
 
+  const changeHandle = useCallback(
+    async (handle: string) => {
+      if (!fid || !custody) throw new Error("sign in first");
+      const next = handle.toLowerCase().replace(/^@/, "");
+      const ok = await publicClient.readContract({ address: deployment.identity, abi: identityAbi, functionName: "isValidHandle", args: [next] });
+      if (!ok) throw new Error("Handle must be 1-16 characters: a-z, 0-9, _");
+      const taken = await publicClient.readContract({ address: deployment.identity, abi: identityAbi, functionName: "fidByHandle", args: [next] });
+      if (taken !== 0n) throw new Error(taken === BigInt(fid) ? "That's already your handle" : `@${next} is taken`);
+
+      // Which key owns this account: the passkey (Mera) unless this session used the browser key.
+      const stored = localStorage.getItem(K.provider);
+      const browserKey = localStorage.getItem("monsoc.custody") as Hex | null;
+      const browserOwns = !!browserKey && privateKeyToAccount(browserKey).address.toLowerCase() === custody.toLowerCase();
+      const provider = stored === deviceProvider.id || (!stored && browserOwns) ? deviceProvider : meraProvider;
+      const conn = await provider.connect();
+      try {
+        if (conn.custody.address.toLowerCase() !== custody.toLowerCase())
+          throw new Error("That passkey belongs to a different account. Pick the passkey you signed up with.");
+        const data = encodeFunctionData({ abi: identityAbi, functionName: "setHandle", args: [next] });
+        const [nonce, est] = await Promise.all([
+          relay.forwarderNonce(conn.custody.address),
+          publicClient.estimateGas({ account: conn.custody.address, to: deployment.identity, data }),
+        ]);
+        const req = await signForwardRequest(conn.custody, {
+          chainId: cfg.chainId,
+          forwarder: deployment.forwarder,
+          to: deployment.identity,
+          data,
+          nonce,
+          gas: (est * 12n) / 10n + 30_000n,
+        });
+        const r = await relay.forward(req);
+        if (r.status !== "success") throw new Error("handle change reverted");
+      } finally {
+        conn.end();
+      }
+      // wait for the indexer so the new handle resolves everywhere
+      for (let i = 0; i < 20; i++) {
+        const p = await relay.user(fid).catch(() => null);
+        if (p?.handle === next) {
+          setProfile(p);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 750));
+      }
+    },
+    [fid, custody],
+  );
+
   const refresh = useCallback(async () => {
     if (fid) await loadUser(fid);
   }, [fid, loadUser]);
 
   const value = useMemo<Session>(
-    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, send, call, setFollow, refresh }),
-    [ready, fid, profile, custody, appKey, following, signup, login, logout, send, call, setFollow, refresh],
+    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, refresh }),
+    [ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

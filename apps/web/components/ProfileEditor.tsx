@@ -6,7 +6,17 @@ import { errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
 
 /** Edits the signed profile message. Saving signs a new `profile` message; the newest one wins everywhere. */
-export function ProfileEditor({ profile, onSaved, onCancel }: { profile: Profile; onSaved: (p: Profile) => void; onCancel: () => void }) {
+export function ProfileEditor({
+  profile,
+  onSaved,
+  onCancel,
+  onHandleChanged,
+}: {
+  profile: Profile;
+  onSaved: (p: Profile) => void;
+  onCancel: () => void;
+  onHandleChanged: (handle: string) => void;
+}) {
   const { send } = useSession();
   const [form, setForm] = useState<Required<ProfileBody>>({
     displayName: profile.displayName ?? "",
@@ -45,6 +55,7 @@ export function ProfileEditor({ profile, onSaved, onCancel }: { profile: Profile
         <div className="-mt-10 rounded-full border-4 border-bg" style={{ width: 88 }}>
           <Avatar fid={profile.fid} handle={profile.handle} src={problems.some((p) => p.startsWith("avatar")) ? null : body.avatar} size={80} />
         </div>
+        <HandleChanger current={profile.handle ?? ""} onChanged={onHandleChanged} />
         <Field label="Name" hint={`${form.displayName.length}/${PROFILE_LIMITS.displayName}`}>
           <input className="input" value={form.displayName} onChange={set("displayName")} maxLength={PROFILE_LIMITS.displayName} placeholder="Your name" />
         </Field>
@@ -65,7 +76,6 @@ export function ProfileEditor({ profile, onSaved, onCancel }: { profile: Profile
             <input className="input" value={form.location} onChange={set("location")} maxLength={PROFILE_LIMITS.location} placeholder="Bengaluru" />
           </Field>
         </div>
-        <p className="text-xs text-muted">Your @{profile.handle} is onchain and isn't changed here.</p>
         {problems.length > 0 && <p className="text-xs text-bad">{problems.join(" · ")}</p>}
         {err && <p className="text-xs text-bad">{err}</p>}
         <div className="flex justify-end gap-2">
@@ -86,5 +96,57 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </span>
       {children}
     </label>
+  );
+}
+
+/** The handle is onchain and owner-only: changing it asks for the passkey (identity key), not the app key. */
+function HandleChanger({ current, onChanged }: { current: string; onChanged: (h: string) => void }) {
+  const { changeHandle } = useSession();
+  const [value, setValue] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const next = value.toLowerCase();
+  const valid = /^[a-z0-9_]{1,16}$/.test(next);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await changeHandle(next);
+      onChanged(next);
+    } catch (e) {
+      const m = errMsg(e);
+      setErr(/PRF/i.test(m) ? "This browser can't use your passkey (no PRF support). Try Safari or Chrome." : /NotAllowed|cancel/i.test(m) ? "Passkey prompt was cancelled." : m);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-line p-3">
+      <span className="mb-1 flex justify-between text-xs text-muted">
+        <span>Handle</span>
+        <span>onchain · 1-16 of a-z, 0-9, _</span>
+      </span>
+      <div className="flex gap-2">
+        <div className="flex flex-1 items-center rounded-xl border border-line bg-panel-2 px-3">
+          <span className="text-muted">@</span>
+          <input
+            className="flex-1 bg-transparent px-1 py-2 text-sm outline-none"
+            value={value}
+            maxLength={16}
+            onChange={(e) => setValue(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+          />
+        </div>
+        <button className="btn-ghost" disabled={busy || !valid || next === current} onClick={submit}>
+          {busy ? "Confirm with passkey…" : "Change handle"}
+        </button>
+      </div>
+      <p className="mt-1 text-[11px] text-muted">
+        Asks for your passkey, since only the account owner can change it. Your old handle becomes available to others; followers and posts stay
+        with you.
+      </p>
+      {err && <p className="mt-1 text-xs text-bad">{err}</p>}
+    </div>
   );
 }

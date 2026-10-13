@@ -3,6 +3,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { mediaUrl, type PostView, type Profile } from "@monsoc/sdk";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { useRouter } from "next/navigation";
 import { Shell, PageHeader } from "@/components/Shell";
 import { PostCard } from "@/components/PostCard";
 import { Avatar } from "@/components/Avatar";
@@ -15,6 +16,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
   const { id } = use(params);
   const { fid, following, setFollow, logout, refresh } = useSession();
   const [editing, setEditing] = useState(false);
+  const router = useRouter();
   const [p, setP] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<PostView[]>([]);
   const [backs, setBacks] = useState<Back[]>([]);
@@ -45,6 +47,10 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         <ProfileEditor
           profile={p}
           onCancel={() => setEditing(false)}
+          onHandleChanged={(h) => {
+            setEditing(false);
+            router.replace(`/u/${h}`);
+          }}
           onSaved={(next) => {
             setP(next);
             setEditing(false);
