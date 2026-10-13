@@ -81,7 +81,7 @@ export function Composer({
   return (
     <div className="border-b border-line px-4 py-3">
       <div className="flex gap-3">
-        <Avatar fid={fid} handle={profile?.handle} />
+        <Avatar fid={fid} handle={profile?.handle} src={profile?.avatar} />
         <div className="flex-1">
           <textarea
             className="w-full resize-none bg-transparent text-[15px] outline-none placeholder:text-muted"

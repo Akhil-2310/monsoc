@@ -226,6 +226,18 @@ CREATE TABLE IF NOT EXISTS batches (
   at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS profiles (
+  fid INTEGER PRIMARY KEY,
+  display_name TEXT,
+  bio TEXT,
+  avatar TEXT,
+  banner TEXT,
+  url TEXT,
+  location TEXT,
+  ts INTEGER NOT NULL,
+  hash TEXT NOT NULL
+);
+
 -- ---------------------------------------------------------------- derived
 CREATE TABLE IF NOT EXISTS reputation (
   fid INTEGER PRIMARY KEY,

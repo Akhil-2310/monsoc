@@ -4,6 +4,7 @@ import {
   verifyMessage,
   extractTags,
   extractLinks,
+  validateProfile,
   appKeysAbi,
   communitiesAbi,
   Scopes,
@@ -16,6 +17,7 @@ import {
   type ViewBody,
   type ChatBody,
   type LabelBody,
+  type ProfileBody,
 } from "@monsoc/sdk";
 import { config } from "./config";
 import { get, run, tx } from "./db";
@@ -198,6 +200,11 @@ async function validateBody(msg: SignedMessage) {
       if (!Array.isArray(l.labels) || l.labels.length === 0) reject("labels required");
       break;
     }
+    case "profile": {
+      const errs = validateProfile(b as unknown as ProfileBody);
+      if (errs.length) reject(errs.join("; "));
+      break;
+    }
     default:
       reject(`unknown type ${type}`);
   }
@@ -297,6 +304,26 @@ function apply(msg: SignedMessage) {
         JSON.stringify(msg),
       );
       break;
+    case "profile": {
+      // newest timestamp wins; an older message arriving late (e.g. from a peer) doesn't overwrite
+      const p = b as ProfileBody;
+      run(
+        `INSERT INTO profiles(fid, display_name, bio, avatar, banner, url, location, ts, hash) VALUES(?,?,?,?,?,?,?,?,?)
+         ON CONFLICT(fid) DO UPDATE SET display_name = excluded.display_name, bio = excluded.bio, avatar = excluded.avatar,
+           banner = excluded.banner, url = excluded.url, location = excluded.location, ts = excluded.ts, hash = excluded.hash
+         WHERE excluded.ts > profiles.ts`,
+        fid,
+        p.displayName ?? null,
+        p.bio ?? null,
+        p.avatar ?? null,
+        p.banner ?? null,
+        p.url ?? null,
+        p.location ?? null,
+        ts,
+        msg.hash,
+      );
+      break;
+    }
     case "label":
       for (const l of b.labels as string[]) {
         if (b.neg) run("DELETE FROM labels WHERE target = ? AND labeler = ? AND label = ?", b.target, fid, l);

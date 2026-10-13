@@ -1,6 +1,23 @@
+"use client";
+import { useState } from "react";
+import { mediaUrl } from "@monsoc/sdk";
+
 const hues = [262, 199, 152, 32, 340, 12, 220, 280];
 
-export function Avatar({ fid, handle, size = 40 }: { fid: number; handle?: string | null; size?: number }) {
+/** Profile image if set (and loads), otherwise a colored initial. */
+export function Avatar({ fid, handle, src, size = 40 }: { fid: number; handle?: string | null; src?: string | null; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  if (src && !broken)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={mediaUrl(src)}
+        alt=""
+        onError={() => setBroken(true)}
+        className="shrink-0 rounded-full border border-line bg-panel-2 object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
   const h = hues[fid % hues.length]!;
   return (
     <div

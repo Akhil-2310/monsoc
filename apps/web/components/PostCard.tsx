@@ -142,12 +142,18 @@ export function PostCard({
       )}
       <div className="flex gap-3">
         <Link href={`/u/${post.handle ?? post.fid}`}>
-          <Avatar fid={post.fid} handle={post.handle} />
+          <Avatar fid={post.fid} handle={post.handle} src={post.avatar} />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-sm">
-            <Link href={`/u/${post.handle ?? post.fid}`} className="font-semibold hover:underline">
-              @{post.handle ?? post.fid}
+            <Link href={`/u/${post.handle ?? post.fid}`} className="min-w-0 truncate hover:underline">
+              {post.displayName ? (
+                <>
+                  <span className="font-semibold">{post.displayName}</span> <span className="text-muted">@{post.handle ?? post.fid}</span>
+                </>
+              ) : (
+                <span className="font-semibold">@{post.handle ?? post.fid}</span>
+              )}
             </Link>
             <span className="text-muted">· {timeAgo(post.timestamp)}</span>
             {post.community !== null && (

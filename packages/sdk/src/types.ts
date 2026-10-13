@@ -30,7 +30,8 @@ export type MessageType =
   | "back"
   | "view"
   | "chat"
-  | "label";
+  | "label"
+  | "profile";
 
 export interface PostBody {
   text: string;
@@ -90,6 +91,18 @@ export interface LabelBody {
   neg?: boolean;
 }
 
+/** Profile details. Each message replaces the previous one in full; the newest timestamp wins. */
+export interface ProfileBody {
+  displayName?: string; // <= 50 chars
+  bio?: string; // <= 280 chars
+  avatar?: string; // ipfs:// or https:// image
+  banner?: string; // ipfs:// or https:// image
+  url?: string; // https:// link
+  location?: string; // <= 50 chars
+}
+
+export const PROFILE_LIMITS = { displayName: 50, bio: 280, location: 50, url: 200, image: 300 } as const;
+
 export type BodyFor<T extends MessageType> = T extends "post"
   ? PostBody
   : T extends "reply"
@@ -106,7 +119,9 @@ export type BodyFor<T extends MessageType> = T extends "post"
               ? ChatBody
               : T extends "label"
                 ? LabelBody
-                : never;
+                : T extends "profile"
+                  ? ProfileBody
+                  : never;
 
 export interface MessageData<T extends MessageType = MessageType> {
   type: T;
@@ -140,12 +155,20 @@ export interface Profile {
   scoutScore: number;
   scoutTier: string | null;
   createdAt: number;
+  displayName: string | null;
+  bio: string | null;
+  avatar: string | null;
+  banner: string | null;
+  url: string | null;
+  location: string | null;
 }
 
 export interface PostView {
   hash: Hex;
   fid: number;
   handle: string | null;
+  displayName: string | null;
+  avatar: string | null;
   type: "post" | "reply" | "trial-post";
   timestamp: number;
   text: string;

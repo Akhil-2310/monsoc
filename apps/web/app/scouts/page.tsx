@@ -49,7 +49,7 @@ export default function Scouts() {
         {rows?.map((s, i) => (
           <div key={s.fid} className="flex items-center gap-3 px-4 py-3">
             <span className="w-6 text-center text-sm text-muted">{i + 1}</span>
-            <Avatar fid={s.fid} handle={s.handle} size={36} />
+            <Avatar fid={s.fid} handle={s.handle} src={s.avatar} size={36} />
             <div className="min-w-0 flex-1">
               <Link href={`/u/${s.handle ?? s.fid}`} className="font-medium hover:underline">@{s.handle ?? s.fid}</Link>
               <div className="flex flex-wrap gap-x-3 text-xs text-muted">

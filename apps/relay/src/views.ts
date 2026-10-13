@@ -7,7 +7,7 @@ export function defaultLabelers(): number[] {
 }
 
 const POST_SELECT = (labelers: number[]) => `
-SELECT p.*, u.handle,
+SELECT p.*, u.handle, pr.display_name, pr.avatar,
   (SELECT COUNT(*) FROM reactions r WHERE r.target = p.hash AND r.type = 'like') AS likes,
   (SELECT COUNT(*) FROM reactions r WHERE r.target = p.hash AND r.type = 'repost') AS reposts,
   (SELECT COUNT(*) FROM posts c WHERE c.parent = p.hash AND c.deleted = 0) AS replies,
@@ -23,6 +23,7 @@ SELECT p.*, u.handle,
   (SELECT m.anchor_batch FROM messages m WHERE m.hash = p.hash) AS anchor_batch
 FROM posts p
 LEFT JOIN users u ON u.fid = p.fid
+LEFT JOIN profiles pr ON pr.fid = p.fid
 LEFT JOIN reputation rep ON rep.fid = p.fid
 `;
 
@@ -40,6 +41,8 @@ interface PostRow {
   trial: string | null;
   trial_status: "testing" | "released" | "dropped" | null;
   handle: string | null;
+  display_name: string | null;
+  avatar: string | null;
   likes: number;
   reposts: number;
   replies: number;
@@ -57,6 +60,8 @@ function toView(r: PostRow): PostView {
     hash: r.hash,
     fid: r.fid,
     handle: r.handle,
+    displayName: r.display_name,
+    avatar: r.avatar,
     type: r.type,
     timestamp: r.ts,
     text: r.text,
@@ -113,14 +118,22 @@ interface ProfileRow {
   rep: number | null;
   verified_followers: number | null;
   score: number | null;
+  display_name: string | null;
+  bio: string | null;
+  avatar: string | null;
+  banner: string | null;
+  url: string | null;
+  location: string | null;
 }
 
 const PROFILE_SELECT = `
 SELECT u.fid, u.custody, u.handle, u.created_at,
   (SELECT COUNT(*) FROM follows f WHERE f.target = u.fid) AS followers,
   (SELECT COUNT(*) FROM follows f WHERE f.fid = u.fid) AS following,
-  r.rep, r.verified_followers, s.score
+  r.rep, r.verified_followers, s.score,
+  pr.display_name, pr.bio, pr.avatar, pr.banner, pr.url, pr.location
 FROM users u
+LEFT JOIN profiles pr ON pr.fid = u.fid
 LEFT JOIN reputation r ON r.fid = u.fid
 LEFT JOIN scout_scores s ON s.fid = u.fid
 `;
@@ -138,6 +151,12 @@ function toProfile(r: ProfileRow): Profile {
     scoutScore: score,
     scoutTier: scoutTier(score),
     createdAt: r.created_at,
+    displayName: r.display_name,
+    bio: r.bio,
+    avatar: r.avatar,
+    banner: r.banner,
+    url: r.url,
+    location: r.location,
   };
 }
 

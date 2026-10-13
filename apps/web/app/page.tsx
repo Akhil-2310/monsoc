@@ -92,7 +92,7 @@ function HomeAside() {
           .slice(0, 5)
           .map((p) => (
             <div key={p.fid} className="mb-2 flex items-center gap-2">
-              <Avatar fid={p.fid} handle={p.handle} size={32} />
+              <Avatar fid={p.fid} handle={p.handle} src={p.avatar} size={32} />
               <Link href={`/u/${p.handle ?? p.fid}`} className="min-w-0 flex-1 text-sm">
                 <div className="truncate font-medium">@{p.handle}</div>
                 <div className="text-xs text-muted">{p.followers} followers</div>

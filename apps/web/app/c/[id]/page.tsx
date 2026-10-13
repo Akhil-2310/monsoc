@@ -136,8 +136,8 @@ export default function CommunityPage({ params }: { params: Promise<{ id: string
         <div className="divide-y divide-line">
           {c.members.map((m) => (
             <div key={m.fid} className="flex items-center gap-3 px-4 py-2">
-              <Avatar fid={m.fid} handle={m.handle} size={32} />
-              <Link href={`/u/${m.handle ?? m.fid}`} className="flex-1 text-sm font-medium">@{m.handle ?? m.fid}</Link>
+              <Avatar fid={m.fid} handle={m.handle} src={m.avatar} size={32} />
+              <Link href={`/u/${m.handle ?? m.fid}`} className="flex-1 text-sm font-medium">{m.displayName ?? `@${m.handle ?? m.fid}`}</Link>
               <span className="chip bg-panel-2 text-muted">{ROLE[m.role]}</span>
               {isMod && m.role < (me?.role ?? 0) && (
                 <button

@@ -11,6 +11,8 @@ import {
   computeScoutScores,
   allocatePayouts,
   anchorTree,
+  validateProfile,
+  cleanProfile,
   type PostView,
   type FeedDefinition,
 } from "../src";
@@ -21,6 +23,8 @@ function post(p: Partial<PostView> & { fid: number }): PostView {
   return {
     hash: `0x${n.toString(16).padStart(64, "0")}` as Hex,
     handle: null,
+    displayName: null,
+    avatar: null,
     type: "post",
     timestamp: Date.now() - n * 60_000,
     text: "hello world, a reasonably long post",
@@ -172,5 +176,18 @@ describe("merkle", () => {
     const hashes = [1, 2, 3].map((i) => `0x${i.toString(16).padStart(64, "0")}` as Hex);
     const t = anchorTree(hashes);
     expect(t.verify(1, t.getProof(1))).toBe(true);
+  });
+});
+
+describe("profiles", () => {
+  it("accepts good profiles and rejects bad links and long fields", () => {
+    expect(validateProfile({ displayName: "Akhil", bio: "building", avatar: "ipfs://bafyabc", url: "https://x.dev" })).toEqual([]);
+    expect(validateProfile({ url: "javascript:alert(1)" })).toHaveLength(1);
+    expect(validateProfile({ avatar: "http://insecure.png" })).toHaveLength(1);
+    expect(validateProfile({ bio: "x".repeat(281) })).toHaveLength(1);
+    expect(validateProfile({ evil: "1" } as never)).toHaveLength(1);
+  });
+  it("cleans empty fields", () => {
+    expect(cleanProfile({ displayName: "  A  ", bio: "", url: " " })).toEqual({ displayName: "A" });
   });
 });

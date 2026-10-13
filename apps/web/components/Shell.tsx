@@ -120,10 +120,10 @@ function AccountMenu() {
         </div>
       )}
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-panel">
-        <Avatar fid={fid} handle={profile?.handle} size={32} />
+        <Avatar fid={fid} handle={profile?.handle} src={profile?.avatar} size={32} />
         <div className="min-w-0 flex-1 text-sm">
-          <div className="truncate font-semibold">@{handle}</div>
-          <div className="text-xs text-muted">fid {fid}{profile?.scoutTier ? ` · ${profile.scoutTier} scout` : ""}</div>
+          <div className="truncate font-semibold">{profile?.displayName ?? `@${handle}`}</div>
+          <div className="truncate text-xs text-muted">{profile?.displayName ? `@${handle} · ` : ""}fid {fid}{profile?.scoutTier ? ` · ${profile.scoutTier} scout` : ""}</div>
         </div>
         <span className="text-muted">⋯</span>
       </button>

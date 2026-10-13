@@ -203,7 +203,7 @@ export default function Onboarding() {
                 .map((p) => (
                   <label key={p.fid} className="flex cursor-pointer items-center gap-2 rounded-xl border border-line p-2 hover:bg-panel-2">
                     <input type="checkbox" checked={pickP.has(p.fid)} onChange={() => toggle(pickP, p.fid, setPickP)} />
-                    <Avatar fid={p.fid} handle={p.handle} size={28} />
+                    <Avatar fid={p.fid} handle={p.handle} src={p.avatar} size={28} />
                     <div className="min-w-0 text-sm">
                       <div className="truncate font-medium">@{p.handle}</div>
                       <div className="truncate text-xs text-muted">{p.reason}</div>
