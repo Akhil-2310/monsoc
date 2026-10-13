@@ -134,11 +134,13 @@ export function rankFeed(def: FeedDefinition, candidates: PostView[], ctx: RankC
   for (const p of candidates) {
     if (seen.has(p.hash)) continue;
     seen.add(p.hash);
-    if (p.fid === ctx.viewerFid) continue;
     if (ctx.mutedFids?.has(p.fid)) continue;
     if (!passesFilters(def, p)) continue;
 
-    const follows = ctx.following.has(p.fid);
+    // your own posts rank like people you follow; your unreleased trials live on the Trials page
+    const own = p.fid === ctx.viewerFid;
+    if (own && p.trial?.status === "testing") continue;
+    const follows = own || ctx.following.has(p.fid);
     const isTesting = p.trial?.status === "testing";
     if (p.trial?.status === "dropped") continue;
 

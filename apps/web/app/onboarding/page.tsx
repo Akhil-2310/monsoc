@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { CommunityInfo, Profile } from "@monsoc/sdk";
 import { communitiesAbi, followsAbi } from "@monsoc/sdk";
 import { useSession, relay, deployment } from "@/lib/session";
-import { providers, isPrfUnsupported, type CustodyProvider } from "@/lib/custody";
+import { providers, deviceProvider, isPrfUnsupported, type CustodyProvider } from "@/lib/custody";
 import { Avatar } from "@/components/Avatar";
 import { errMsg } from "@/lib/format";
 import cfg from "@/monsoc.config";
@@ -40,12 +40,15 @@ export default function Onboarding() {
     });
   }, [step, custody, fid]);
 
-  const explain = (e: unknown) =>
-    isPrfUnsupported(e)
-      ? "This passkey manager doesn't support the PRF extension yet. Try iCloud Keychain, 1Password or Google Password Manager."
+  const [prfFailed, setPrfFailed] = useState(false);
+  const explain = (e: unknown) => {
+    if (isPrfUnsupported(e)) setPrfFailed(true);
+    return isPrfUnsupported(e)
+      ? "This browser's passkey manager can't derive keys from a passkey (no PRF support)."
       : (e as { name?: string })?.name === "NotAllowedError" || /NotAllowed|cancel/i.test(errMsg(e))
         ? "Passkey prompt was cancelled."
         : errMsg(e);
+  };
 
   const create = async (provider: CustodyProvider) => {
     setBusy(true);
@@ -141,6 +144,22 @@ export default function Onboarding() {
             any device it syncs to.
           </p>
           {err && <p className="mt-3 text-sm text-bad">{err}</p>}
+          {prfFailed && !providers.includes(deviceProvider) && (
+            <div className="mt-4 rounded-xl border border-warn/40 bg-warn/10 p-3 text-xs">
+              <p>
+                Passkeys work in Chrome or Safari with iCloud Keychain, 1Password or Google Password Manager. Or continue here with a key stored in
+                this browser: it works the same, but it can't be restored on another device, and clearing site data loses it.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button className="btn-primary btn-sm" disabled={busy || !handle} onClick={() => create(deviceProvider)}>
+                  Create with this browser's key
+                </button>
+                <button className="btn-ghost btn-sm" disabled={busy} onClick={() => signIn(deviceProvider)}>
+                  Sign in with this browser's key
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

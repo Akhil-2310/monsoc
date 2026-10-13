@@ -98,10 +98,10 @@ function deviceAccount(): Connected {
   return { custody: { address: acct.address, signTypedData: acct.signTypedData }, end: () => undefined };
 }
 
-/** Dev only: a key kept in this browser, for authenticators without PRF support. */
+/** Fallback for passkey managers without PRF: a key kept in this browser (not restorable elsewhere). */
 export const deviceProvider: CustodyProvider = {
   id: "device",
-  label: "Device key (dev)",
+  label: "this browser's key",
   create: async () => deviceAccount(),
   connect: async () => deviceAccount(),
 };

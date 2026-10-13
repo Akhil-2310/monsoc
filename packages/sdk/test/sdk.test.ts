@@ -96,6 +96,14 @@ describe("feed engine", () => {
     expect(ranked.find((r) => r.post.fid === 9)?.reason).toBe("discovery");
   });
 
+  it("shows the viewer's own posts but not their running trials", () => {
+    const mine = post({ fid: viewer });
+    const myTrial = post({ fid: viewer, tags: ["ai"], trial: { topics: ["ai"], status: "testing" } });
+    const ranked = rankFeed(DEFAULT_FEEDS.home!, [mine, myTrial], { viewerFid: viewer, following });
+    expect(ranked.map((r) => r.post.hash)).toEqual([mine.hash]);
+    expect(ranked[0]!.reason).toBe("network");
+  });
+
   it("applies filters and labels", () => {
     const def: FeedDefinition = { ...DEFAULT_FEEDS.noBait! };
     const bait = post({ fid: 2, labels: ["engagement-bait"] });
