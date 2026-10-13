@@ -54,7 +54,7 @@ contract ProtocolTest is Test {
         communities = new CommunityRegistry(address(fwd), address(identity), address(appKeys), address(payments), admin);
         scouts = new ScoutRegistry(admin);
         oracle = new AdminPriceOracle(admin, 2e8); // 1 MON = $2
-        tusd = new TestStable();
+        tusd = new TestStable(address(fwd));
 
         vm.startPrank(admin);
         identity.setTrustedCaller(address(signup), true);

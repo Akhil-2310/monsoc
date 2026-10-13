@@ -39,7 +39,7 @@ contract Deploy is Script {
             new CommunityRegistry(fwd, address(identity), address(appKeys), address(payments), deployer);
         ScoutRegistry scouts = new ScoutRegistry(deployer);
         AdminPriceOracle oracle = new AdminPriceOracle(relay, monUsd);
-        TestStable tusd = new TestStable();
+        TestStable tusd = new TestStable(fwd);
 
         identity.setTrustedCaller(address(signup), true);
         appKeys.setTrustedCaller(address(signup), true);
