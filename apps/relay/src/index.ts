@@ -5,10 +5,12 @@ import { relayAccount, deployment } from "./chain";
 import { startIndexer } from "./indexer";
 import { startAnchoring } from "./anchor";
 import { startJobs } from "./jobs";
+import { startKeeper } from "./markets";
 
 startIndexer();
 startAnchoring();
 startJobs();
+startKeeper();
 
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[relay] listening on ${config.publicUrl}`);

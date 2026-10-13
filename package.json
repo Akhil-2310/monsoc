@@ -17,7 +17,8 @@
     "seed:demo": "pnpm --filter @monsoc/relay seed:demo",
     "relay:testnet": "pnpm --filter @monsoc/relay start:testnet",
     "bootstrap:testnet": "pnpm --filter @monsoc/relay bootstrap:testnet",
-    "web:testnet": "NEXT_PUBLIC_CHAIN_ID=10143 NEXT_PUBLIC_RPC_URL=https://testnet-rpc.monad.xyz pnpm --filter @monsoc/web dev"
+    "web:testnet": "NEXT_PUBLIC_CHAIN_ID=10143 NEXT_PUBLIC_RPC_URL=https://testnet-rpc.monad.xyz pnpm --filter @monsoc/web dev",
+    "deploy:markets:testnet": "cd contracts && set -a && . ./.env.testnet && set +a && forge script script/DeployMarkets.s.sol --rpc-url $MONAD_RPC_URL --broadcast && cd .. && pnpm gen"
   },
   "devDependencies": {
     "typescript": "5.8"

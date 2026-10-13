@@ -15,6 +15,9 @@ export interface Deployment {
   scouts: Address;
   oracle: Address;
   tusd: Address;
+  /** CreatorMarkets, added after the core deployment */
+  markets?: Address;
+  marketsStartBlock?: number;
 }
 
 // ------------------------------------------------------------------ protocol messages

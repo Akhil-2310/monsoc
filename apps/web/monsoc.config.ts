@@ -23,7 +23,7 @@ const config = {
     tipping: true,
     trials: true,
     scouts: true,
-    markets: false, // creator markets are v2 and gated by country
+    markets: true, // milestone markets on creators (testnet play money; gate by country before real money)
   },
 
   /** also offer a browser-stored key, for testing on authenticators without passkey PRF support */

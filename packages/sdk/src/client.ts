@@ -59,6 +59,34 @@ export interface TrialResults {
   autoRelease: { windowHours: number; endsAt: number } | null;
 }
 
+export interface MarketInfo {
+  id: number;
+  creator: { fid: number; handle: string | null; displayName: string | null; avatar: string | null; followers: number } | null;
+  openerFid: number;
+  openerHandle: string | null;
+  target: number;
+  openedAt: number;
+  deadline: number;
+  maxFid: number;
+  counted: number;
+  outcome: "open" | "yes" | "no" | "void";
+  resolvedAt: number | null;
+  yesPool: string;
+  noPool: string;
+  yesWeight: string;
+  noWeight: string;
+  yesShare: number;
+  creatorFee: string;
+  stakers: number;
+}
+
+export interface MarketDetail extends MarketInfo {
+  stakes: { fid: number; handle: string | null; yes: boolean; amount: string; weight: string; at: number }[];
+  position: { yesStake: string; noStake: string; yesWeight: string; noWeight: string; claimed: boolean; payout: string } | null;
+  /** share weight a stake placed now would get (2.0 at open → 1.0 at deadline) */
+  multiplier: number;
+}
+
 export interface FeedInputs {
   following: number[];
   posts: PostView[];
@@ -114,6 +142,19 @@ export class RelayClient {
       "/v1/media/auth",
       p,
     );
+  }
+  markets(opts: { status?: "open" | "resolved"; creator?: number; fid?: number } = {}) {
+    const q = new URLSearchParams();
+    if (opts.status) q.set("status", opts.status);
+    if (opts.creator) q.set("creator", String(opts.creator));
+    if (opts.fid) q.set("fid", String(opts.fid));
+    return this.req<MarketInfo[]>(`/v1/markets?${q}`);
+  }
+  market(id: number, viewer?: number) {
+    return this.req<MarketDetail>(`/v1/markets/${id}${viewer ? `?viewer=${viewer}` : ""}`);
+  }
+  marketInfo(fid: number) {
+    return this.req<{ enabled: boolean; optedIn: boolean; creatorFees: string }>(`/v1/users/${fid}/market-info`);
   }
   faucet(address: Address) {
     return this.post<{ txHash: Hex }>("/v1/faucet", { address });

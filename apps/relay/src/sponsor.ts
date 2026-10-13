@@ -10,6 +10,7 @@ import {
   anchorAbi,
   appKeysAbi,
   tusdAbi,
+  marketsAbi,
   type ForwardRequestData,
   type SignupParams,
 } from "@monsoc/sdk";
@@ -32,6 +33,7 @@ const allowed: Record<string, Abi> = {
   [deployment.appKeys.toLowerCase()]: appKeysAbi as Abi,
   [deployment.identity.toLowerCase()]: identityAbi as Abi,
   [deployment.tusd.toLowerCase()]: tusdAbi as Abi,
+  ...(deployment.markets ? { [deployment.markets.toLowerCase()]: marketsAbi as Abi } : {}),
 };
 
 const reject = (m: string): never => {

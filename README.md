@@ -109,6 +109,7 @@ Run the relay with `CHAIN_ID=10143 RPC_URL=$MONAD_RPC_URL RELAY_PRIVATE_KEY=0x..
 | Anchor: Merkle roots of content, `verify()`, escape hatch | `contracts/src/Anchor.sol` |
 | Communities: open, token-gated, invite-only, paid; roles, bans | `contracts/src/CommunityRegistry.sol` |
 | Scout score roots | `contracts/src/ScoutRegistry.sol` |
+| **Milestone markets on creators** ("will @x reach N followers by date?"), settled from the follow graph with no oracle | `contracts/src/CreatorMarkets.sol`, keeper in `apps/relay/src/markets.ts`, UI at `/markets` |
 | Sponsored gas (no MON needed) | OZ `ERC2771Forwarder` + `apps/relay/src/sponsor.ts` |
 | Signed message format | `packages/sdk/src/message.ts` |
 | Rule-based feed engine + discovery slots + trials + A/B split | `packages/sdk/src/feed.ts` |
@@ -136,4 +137,5 @@ Run the relay with `CHAIN_ID=10143 RPC_URL=$MONAD_RPC_URL RELAY_PRIVATE_KEY=0x..
 * **MON price** comes from `AdminPriceOracle`, an operator-set testnet stand-in for a real oracle or DEX TWAP (open question in the spec).
 * **Sponsored requests can't carry value.** MON payments must come from the user's own wallet; stablecoin payments are fully gasless.
 * **Payout reputation gate.** Paid subscribers count fully, since it's their own money. Reputation weighting applies to free signals (discovery, scouts, labeler trust).
-* **Not built (per the roadmap):** creator shares, milestone markets, and encrypted DMs/group chats (v2: MLS/OpenMLS or XMTP). `KeyTypes.X25519` is reserved in the key registry for chat keys.
+* **Milestone markets.** Creators opt in (and can't bet on themselves). Stakes are time-weighted, 2x at open falling to 1x at the deadline, so backing a creator early earns more. Winners get their stake back plus the losing pool split by weight; 1% of the losing pool goes to the creator, 1% to the protocol. Settlement reads `FollowGraph` directly: anyone submits follower fids, the contract verifies each follow and counts it once; YES settles the moment the target is hit, NO at the deadline. Only accounts with `fid <= maxFid` (accounts that existed when the market opened) count, so new sybil accounts can't swing a market. The relay's keeper automates counting and settlement but holds no special power. Known limits: a creator could pre-create follower accounts before opening a market, and an attacker could follow with pre-existing accounts they control; reputation weighting (as in scout scores) is the next step. Testnet uses play money (tUSD); real money needs per-country legal review.
+* **Not built (per the roadmap):** creator shares, and encrypted DMs/group chats (v2: MLS/OpenMLS or XMTP). `KeyTypes.X25519` is reserved in the key registry for chat keys.

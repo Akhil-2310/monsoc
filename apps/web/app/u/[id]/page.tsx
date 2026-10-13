@@ -3,6 +3,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { mediaUrl, type PostView, type Profile } from "@monsoc/sdk";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { ProfileMarkets } from "@/components/ProfileMarkets";
 import { useRouter } from "next/navigation";
 import { Shell, PageHeader } from "@/components/Shell";
 import { PostCard } from "@/components/PostCard";
@@ -135,6 +136,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
         </div>
       </div>
       )}
+      {!editing && <ProfileMarkets p={p} />}
       <div className="flex gap-1 border-b border-line px-3 py-2">
         <button className={`tab ${tab === "posts" ? "tab-on" : ""}`} onClick={() => setTab("posts")}>Posts</button>
         <button className={`tab ${tab === "scouted" ? "tab-on" : ""}`} onClick={() => setTab("scouted")}>Scouted ({backs.length})</button>

@@ -7,11 +7,12 @@ import {
   paymentsAbi,
   anchorAbi,
   communitiesAbi,
+  marketsAbi,
   type SignedMessage,
 } from "@monsoc/sdk";
 import { publicClient, deployment } from "./chain";
 import { config } from "./config";
-import { kvGet, kvSet, run, tx } from "./db";
+import { get, kvGet, kvSet, run, tx } from "./db";
 import { ingest } from "./messages";
 
 /**
@@ -27,6 +28,7 @@ const sources: Record<string, Abi> = {
   [deployment.payments.toLowerCase()]: paymentsAbi as Abi,
   [deployment.anchor.toLowerCase()]: anchorAbi as Abi,
   [deployment.communities.toLowerCase()]: communitiesAbi as Abi,
+  ...(deployment.markets ? { [deployment.markets.toLowerCase()]: marketsAbi as Abi } : {}),
 };
 
 const blockTimes = new Map<bigint, number>();
@@ -260,6 +262,70 @@ async function handle(log: Log, ev: Decoded) {
       break;
     case "CustomRolesSet":
       run("UPDATE members SET custom_roles = ? WHERE community_id = ? AND fid = ?", String(a.mask), n(a.cid), n(a.fid));
+      break;
+    // ------------------------------------------------ creator markets
+    case "OptInSet":
+      run(
+        "INSERT INTO market_optins(fid, opted_in) VALUES(?,?) ON CONFLICT(fid) DO UPDATE SET opted_in = excluded.opted_in",
+        n(a.creatorFid),
+        a.optedIn ? 1 : 0,
+      );
+      break;
+    case "MarketCreated":
+      run(
+        `INSERT OR REPLACE INTO markets(id, creator_fid, opener_fid, target, opened_at, deadline, max_fid) VALUES(?,?,?,?,?,?,?)`,
+        n(a.marketId),
+        n(a.creatorFid),
+        n(a.openerFid),
+        n(a.target),
+        at,
+        n(a.deadline) * 1000,
+        n(a.maxFid),
+      );
+      break;
+    case "Staked": {
+      run(
+        `INSERT OR IGNORE INTO market_stakes(tx, log_index, market_id, fid, yes, amount, weight, at) VALUES(?,?,?,?,?,?,?,?)`,
+        log.transactionHash!,
+        log.logIndex!,
+        n(a.marketId),
+        n(a.fid),
+        a.yes ? 1 : 0,
+        String(a.amount),
+        String(a.weight),
+        at,
+      );
+      const col = a.yes ? "yes" : "no";
+      const m = get<Record<string, string>>(`SELECT ${col}_pool AS pool, ${col}_weight AS weight FROM markets WHERE id = ?`, n(a.marketId));
+      if (m)
+        run(
+          `UPDATE markets SET ${col}_pool = ?, ${col}_weight = ? WHERE id = ?`,
+          String(BigInt(m.pool!) + BigInt(a.amount)),
+          String(BigInt(m.weight!) + BigInt(a.weight)),
+          n(a.marketId),
+        );
+      break;
+    }
+    case "FollowerCounted":
+      run("INSERT OR IGNORE INTO market_counted(market_id, follower_fid) VALUES(?,?)", n(a.marketId), n(a.followerFid));
+      run("UPDATE markets SET counted = ? WHERE id = ?", n(a.counted), n(a.marketId));
+      break;
+    case "FollowerUncounted":
+      run("DELETE FROM market_counted WHERE market_id = ? AND follower_fid = ?", n(a.marketId), n(a.followerFid));
+      run("UPDATE markets SET counted = ? WHERE id = ?", n(a.counted), n(a.marketId));
+      break;
+    case "Resolved":
+      run(
+        "UPDATE markets SET outcome = ?, counted = ?, resolved_at = ?, creator_fee = ? WHERE id = ?",
+        Number(a.outcome),
+        n(a.counted),
+        at,
+        String(a.creatorFee),
+        n(a.marketId),
+      );
+      break;
+    case "Claimed":
+      run("INSERT OR REPLACE INTO market_claims(market_id, fid, amount) VALUES(?,?,?)", n(a.marketId), n(a.fid), String(a.amount));
       break;
     case "Invited":
       run(

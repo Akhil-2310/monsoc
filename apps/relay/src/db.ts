@@ -264,6 +264,54 @@ CREATE TABLE IF NOT EXISTS mentions (
 );
 CREATE INDEX IF NOT EXISTS mentions_fid ON mentions(fid, ts);
 
+-- ---------------------------------------------------------------- creator markets
+CREATE TABLE IF NOT EXISTS markets (
+  id INTEGER PRIMARY KEY,
+  creator_fid INTEGER NOT NULL,
+  opener_fid INTEGER NOT NULL,
+  target INTEGER NOT NULL,
+  opened_at INTEGER NOT NULL,
+  deadline INTEGER NOT NULL,
+  max_fid INTEGER NOT NULL,
+  counted INTEGER NOT NULL DEFAULT 0,
+  outcome INTEGER NOT NULL DEFAULT 0, -- 0 open, 1 yes, 2 no, 3 void
+  resolved_at INTEGER,
+  yes_pool TEXT NOT NULL DEFAULT '0',
+  no_pool TEXT NOT NULL DEFAULT '0',
+  yes_weight TEXT NOT NULL DEFAULT '0',
+  no_weight TEXT NOT NULL DEFAULT '0',
+  creator_fee TEXT NOT NULL DEFAULT '0'
+);
+CREATE INDEX IF NOT EXISTS markets_creator ON markets(creator_fid);
+CREATE TABLE IF NOT EXISTS market_stakes (
+  tx TEXT NOT NULL,
+  log_index INTEGER NOT NULL,
+  market_id INTEGER NOT NULL,
+  fid INTEGER NOT NULL,
+  yes INTEGER NOT NULL,
+  amount TEXT NOT NULL,
+  weight TEXT NOT NULL,
+  at INTEGER NOT NULL,
+  PRIMARY KEY (tx, log_index)
+);
+CREATE INDEX IF NOT EXISTS market_stakes_market ON market_stakes(market_id);
+CREATE INDEX IF NOT EXISTS market_stakes_fid ON market_stakes(fid);
+CREATE TABLE IF NOT EXISTS market_counted (
+  market_id INTEGER NOT NULL,
+  follower_fid INTEGER NOT NULL,
+  PRIMARY KEY (market_id, follower_fid)
+);
+CREATE TABLE IF NOT EXISTS market_claims (
+  market_id INTEGER NOT NULL,
+  fid INTEGER NOT NULL,
+  amount TEXT NOT NULL,
+  PRIMARY KEY (market_id, fid)
+);
+CREATE TABLE IF NOT EXISTS market_optins (
+  fid INTEGER PRIMARY KEY,
+  opted_in INTEGER NOT NULL
+);
+
 -- ---------------------------------------------------------------- derived
 CREATE TABLE IF NOT EXISTS reputation (
   fid INTEGER PRIMARY KEY,

@@ -20,6 +20,7 @@ import { profile, profiles, queryPosts, postsByHash, handleOf, defaultLabelers, 
 import { proofFor, batchHashes } from "./anchor";
 import { forward, signup, faucet, addKey } from "./sponsor";
 import { mediaAuth, mediaEnabled } from "./media";
+import { listMarkets, marketDetail, creatorMarketInfo } from "./markets";
 import { trialResults, scoutScoresFor, currentEpoch } from "./jobs";
 
 export const app = new Hono();
@@ -525,6 +526,23 @@ app.get("/v1/users/:fid/relations", (c) => {
     blocked: profiles("u.fid IN (SELECT target FROM relations WHERE fid = ? AND kind = 'block')", [fid], "u.handle"),
   });
 });
+
+// ------------------------------------------------------------------ creator markets
+
+app.get("/v1/markets", (c) =>
+  c.json(
+    listMarkets({
+      status: c.req.query("status"),
+      creator: Number(c.req.query("creator") ?? 0) || undefined,
+      fid: Number(c.req.query("fid") ?? 0) || undefined,
+    }),
+  ),
+);
+app.get("/v1/markets/:id", async (c) => {
+  const m = await marketDetail(Number(c.req.param("id")), viewerFrom(c.req.query("viewer")) || undefined);
+  return m ? c.json(m) : c.json({ error: "not found" }, 404);
+});
+app.get("/v1/users/:fid/market-info", async (c) => c.json(await creatorMarketInfo(fidParam(c.req.param("fid")))));
 
 // ------------------------------------------------------------------ search
 

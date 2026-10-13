@@ -16,7 +16,9 @@ export const deployments: Record<number, Deployment> = {
     "scouts": "0xf27EF7D19DcABea9EE4C29d7D178bB194cFCfD2e",
     "signup": "0x8eBCC90671b7081915fB00D9450edbEf8b2953b6",
     "startBlock": 70755753,
-    "tusd": "0x3258CB92edc5AF449B865dc091b7f770f52a2f2C"
+    "tusd": "0x3258CB92edc5AF449B865dc091b7f770f52a2f2C",
+    "markets": "0x0a22cf5A7301DDa6a3A235690F07b0bfF96Ea6B3",
+    "marketsStartBlock": 70779199
   },
   "31337": {
     "anchor": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",

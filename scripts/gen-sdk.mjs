@@ -17,6 +17,7 @@ const contracts = {
   anchor: "Anchor",
   communities: "CommunityRegistry",
   scouts: "ScoutRegistry",
+  markets: "CreatorMarkets",
   oracle: "AdminPriceOracle",
   tusd: "TestStable",
   forwarder: "ERC2771Forwarder",
