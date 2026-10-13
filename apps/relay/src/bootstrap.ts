@@ -19,7 +19,7 @@ import {
 } from "@monsoc/sdk";
 import { config } from "./config";
 import { kvSet } from "./db";
-import { deployment, relayAccount } from "./chain";
+import { deployment, relayAccount, publicClient } from "./chain";
 
 const HANDLE = process.env.OPERATOR_HANDLE ?? "monsoc";
 const relay = new RelayClient(config.publicUrl);
@@ -29,7 +29,8 @@ const dataUri = (o: unknown) => `data:application/json;base64,${Buffer.from(JSON
 async function call(to: Address, abi: readonly unknown[], functionName: string, args: readonly unknown[]) {
   const data = encodeFunctionData({ abi: abi as never, functionName, args } as never);
   const nonce = await relay.forwarderNonce(appKey.address);
-  const req = await signForwardRequest(appKey, { chainId: config.chainId, forwarder: deployment.forwarder, to, data, nonce });
+  const gas = ((await publicClient.estimateGas({ account: appKey.address, to, data })) * 12n) / 10n + 30_000n;
+  const req = await signForwardRequest(appKey, { chainId: config.chainId, forwarder: deployment.forwarder, to, data, nonce, gas });
   const r = await relay.forward(req);
   if (r.status !== "success") throw new Error(`${functionName} reverted`);
 }

@@ -226,8 +226,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!appKey) return Promise.reject(new Error("sign in first"));
       const job = callQueue.current.then(async () => {
         const data = encodeFunctionData({ abi: abi as Abi, functionName, args } as never);
-        const nonce = await relay.forwarderNonce(appKey.address);
-        const req = await signForwardRequest(appKey, { chainId: cfg.chainId, forwarder: deployment.forwarder, to, data, nonce });
+        // Monad charges for the gas limit, not gas used, so sign a tight limit instead of a generous default.
+        // Our contracts read _msgSender() == app key either way, so estimating the call directly is exact.
+        const [nonce, est] = await Promise.all([
+          relay.forwarderNonce(appKey.address),
+          publicClient.estimateGas({ account: appKey.address, to, data }),
+        ]);
+        const gas = (est * 12n) / 10n + 30_000n;
+        const req = await signForwardRequest(appKey, { chainId: cfg.chainId, forwarder: deployment.forwarder, to, data, nonce, gas });
         const r = await relay.forward(req);
         if (r.status !== "success") throw new Error(`${functionName} reverted`);
         return r.txHash;

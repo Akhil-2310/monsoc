@@ -89,7 +89,7 @@ export async function forward(raw: ForwardRequestData) {
   const abi = allowed[req.to.toLowerCase()];
   if (!abi) reject("target is not a protocol contract");
   if (req.value !== 0n) reject("sponsored requests can't carry value; pay MON from your own wallet");
-  if (req.gas > 5_000_000n) reject("gas too high");
+  if (req.gas > 3_000_000n) reject("gas too high");
   const fid = await fidForSender(req.from);
   if (fid === null) reject("sender is not a registered app key or custody");
 

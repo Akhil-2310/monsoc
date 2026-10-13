@@ -27,7 +27,7 @@ import {
 } from "@monsoc/sdk";
 import { config } from "./config";
 import { kvSet } from "./db";
-import { deployment } from "./chain";
+import { deployment, publicClient } from "./chain";
 
 const relay = new RelayClient(config.publicUrl);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -75,7 +75,8 @@ class Actor {
   async call(to: Address, abi: readonly unknown[], functionName: string, args: readonly unknown[]) {
     const data = encodeFunctionData({ abi: abi as never, functionName, args } as never);
     const nonce = await relay.forwarderNonce(this.key.address);
-    const req = await signForwardRequest(this.key, { chainId: config.chainId, forwarder: deployment.forwarder, to, data, nonce });
+    const gas = ((await publicClient.estimateGas({ account: this.key.address, to, data })) * 12n) / 10n + 30_000n;
+    const req = await signForwardRequest(this.key, { chainId: config.chainId, forwarder: deployment.forwarder, to, data, nonce, gas });
     const r = await relay.forward(req);
     if (r.status !== "success") throw new Error(`${this.handle} ${functionName} reverted`);
   }

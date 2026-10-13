@@ -44,8 +44,9 @@ export async function signForwardRequest(
   },
 ): Promise<ForwardRequestData> {
   const value = args.value ?? 0n;
-  // relays pay for gas used, not the limit, so a generous default is free; long URIs need it
-  const gas = args.gas ?? 3_000_000n;
+  // Pass an estimate: chains like Monad charge for the gas limit, so this fallback is deliberately generous only
+  // for callers that can't estimate.
+  const gas = args.gas ?? 1_500_000n;
   const deadline = Math.floor(Date.now() / 1000) + (args.ttlSeconds ?? 600);
   const signature = await account.signTypedData({
     domain: forwarderDomain(args.chainId, args.forwarder),
