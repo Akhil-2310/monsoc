@@ -58,8 +58,8 @@ export function Progress({ m }: { m: MarketInfo }) {
       </div>
       <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-panel-2">
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundImage: m.outcome === "no" ? "linear-gradient(90deg, var(--bad), var(--coral))" : "linear-gradient(90deg, var(--accent), var(--accent-2))" }}
+          className={`h-full rounded-full transition-all duration-500 ${m.outcome === "no" ? "bg-bad" : "bg-accent"}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>
@@ -74,7 +74,7 @@ export function MarketCard({ m, onChanged, inFeed = false }: { m: MarketInfo; on
   const isCreator = fid === m.creator?.fid;
 
   return (
-    <div className={inFeed ? "rounded-3xl border border-accent/25 bg-gradient-to-br from-accent-soft via-panel to-panel p-4 shadow-soft" : "card p-4"}>
+    <div className={inFeed ? "rounded-3xl border border-accent/30 bg-panel p-4 shadow-soft" : "card p-4"}>
       {inFeed && (
         <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-accent">
           <TrendingUp size={13} /> Live market
@@ -112,10 +112,10 @@ export function MarketCard({ m, onChanged, inFeed = false }: { m: MarketInfo; on
       </div>
       {m.outcome === "open" && fid && !isCreator && (
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button className="btn rounded-2xl bg-good/12 py-2.5 text-good hover:bg-good hover:text-white" onClick={() => setSide("yes")}>
+          <button className="btn rounded-2xl bg-good/12 py-2.5 text-good hover:bg-good hover:text-on-accent" onClick={() => setSide("yes")}>
             <ThumbsUp size={15} /> Back YES
           </button>
-          <button className="btn rounded-2xl bg-bad/12 py-2.5 text-bad hover:bg-bad hover:text-white" onClick={() => setSide("no")}>
+          <button className="btn rounded-2xl bg-bad/12 py-2.5 text-bad hover:bg-bad hover:text-on-accent" onClick={() => setSide("no")}>
             <ThumbsDown size={15} /> Back NO
           </button>
         </div>

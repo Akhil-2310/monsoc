@@ -17,9 +17,9 @@ const themeScript = `try{var t=localStorage.getItem("monsoc.theme");if(t==="ligh
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const accent = cfg.theme.accent
-    ? `:root{--accent:${cfg.theme.accent.light};--accent-2:${cfg.theme.accent2.light}}` +
-      `@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--accent:${cfg.theme.accent.dark};--accent-2:${cfg.theme.accent2.dark}}}` +
-      `:root[data-theme="dark"]{--accent:${cfg.theme.accent.dark};--accent-2:${cfg.theme.accent2.dark}}`
+    ? `:root{--accent:${cfg.theme.accent.light}}` +
+      `@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--accent:${cfg.theme.accent.dark}}}` +
+      `:root[data-theme="dark"]{--accent:${cfg.theme.accent.dark}}`
     : "";
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable}`} suppressHydrationWarning>

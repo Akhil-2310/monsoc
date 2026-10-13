@@ -122,7 +122,7 @@ export function StakeSheet({ marketId, side, onClose, onDone }: { marketId: numb
         </label>
         {err && <p className="mt-2 text-xs text-bad">{err}</p>}
         <button
-          className={`btn mt-3 w-full rounded-xl py-2.5 font-semibold text-white ${side === "yes" ? "bg-good/90 hover:bg-good" : "bg-bad/90 hover:bg-bad"}`}
+          className={`btn mt-3 w-full rounded-xl py-2.5 font-semibold text-on-accent ${side === "yes" ? "bg-good/90 hover:bg-good" : "bg-bad/90 hover:bg-bad"}`}
           disabled={!valid || !ack || busy || !m}
           onClick={submit}
         >

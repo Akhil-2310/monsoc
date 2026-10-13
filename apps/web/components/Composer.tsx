@@ -147,7 +147,7 @@ export function Composer({
                   key={t.id}
                   type="button"
                   onClick={() => togglePick(t.id)}
-                  className={`chip border transition ${picked.includes(t.id) ? "border-transparent bg-accent text-white" : "border-line bg-panel text-muted hover:border-accent/40 hover:text-text"}`}
+                  className={`chip border transition ${picked.includes(t.id) ? "border-transparent bg-accent text-on-accent" : "border-line bg-panel text-muted hover:border-accent/40 hover:text-text"}`}
                 >
                   {picked.includes(t.id) ? <Check size={11} /> : <Plus size={11} />}
                   {t.label}

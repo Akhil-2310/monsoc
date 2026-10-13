@@ -5,16 +5,14 @@
    (html[data-theme]). Every component reads these, so both themes stay in sync. */
 :root {
   --bg: #faf7f2;
-  --bg-tint: rgba(124, 58, 237, 0.07);
-  --bg-tint-2: rgba(255, 107, 74, 0.06);
   --panel: #ffffff;
   --panel-2: #f4f0e9;
   --line: #ebe5da;
   --text: #1b1724;
   --muted: #6e6879;
   --accent: #7c3aed;
-  --accent-2: #db2777;
   --accent-soft: rgba(124, 58, 237, 0.1);
+  --on-accent: #ffffff;
   --coral: #f2643f;
   --good: #16a34a;
   --bad: #e11d48;
@@ -27,16 +25,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f0c16;
-    --bg-tint: rgba(167, 139, 250, 0.1);
-    --bg-tint-2: rgba(244, 114, 182, 0.06);
     --panel: #17131f;
     --panel-2: #211c2c;
     --line: #2d2738;
     --text: #f3effa;
     --muted: #a59eb4;
     --accent: #a78bfa;
-    --accent-2: #f472b6;
     --accent-soft: rgba(167, 139, 250, 0.14);
+    --on-accent: #17131f;
     --coral: #fb8a6b;
     --good: #4ade80;
     --bad: #fb7185;
@@ -49,16 +45,14 @@
 
 :root[data-theme="dark"] {
   --bg: #0f0c16;
-  --bg-tint: rgba(167, 139, 250, 0.1);
-  --bg-tint-2: rgba(244, 114, 182, 0.06);
   --panel: #17131f;
   --panel-2: #211c2c;
   --line: #2d2738;
   --text: #f3effa;
   --muted: #a59eb4;
   --accent: #a78bfa;
-  --accent-2: #f472b6;
   --accent-soft: rgba(167, 139, 250, 0.14);
+  --on-accent: #17131f;
   --coral: #fb8a6b;
   --good: #4ade80;
   --bad: #fb7185;
@@ -76,8 +70,8 @@
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
-  --color-accent-2: var(--accent-2);
   --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
   --color-coral: var(--coral);
   --color-good: var(--good);
   --color-bad: var(--bad);
@@ -97,11 +91,6 @@ body {
   font-family: var(--font-sans);
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
-  /* soft color wash at the top so the page doesn't feel flat */
-  background-image:
-    radial-gradient(1200px 500px at 15% -10%, var(--bg-tint), transparent 60%),
-    radial-gradient(900px 400px at 95% -5%, var(--bg-tint-2), transparent 60%);
-  background-attachment: fixed;
 }
 h1,
 h2,
@@ -126,8 +115,7 @@ h3,
   @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
 }
 @utility btn-primary {
-  @apply btn text-white shadow-soft hover:brightness-110;
-  background-image: linear-gradient(135deg, var(--accent), var(--accent-2));
+  @apply btn bg-accent text-on-accent shadow-soft hover:brightness-110;
 }
 @utility btn-ghost {
   @apply btn border border-line bg-panel text-text hover:border-accent/40 hover:bg-panel-2;
@@ -149,12 +137,6 @@ h3,
 }
 @utility tab-on {
   @apply bg-text text-bg hover:bg-text hover:text-bg;
-}
-@utility gradient-text {
-  background-image: linear-gradient(135deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 
 @keyframes pop-in {

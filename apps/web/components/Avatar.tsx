@@ -26,7 +26,7 @@ export function Avatar({ fid, handle, src, size = 40 }: { fid: number; handle?: 
         width: size,
         height: size,
         fontSize: size * 0.4,
-        background: `linear-gradient(135deg, hsl(${h} 70% 55%), hsl(${(h + 40) % 360} 70% 40%))`,
+        background: `hsl(${h} 62% 50%)`,
       }}
     >
       {(handle ?? String(fid)).slice(0, 1).toUpperCase()}

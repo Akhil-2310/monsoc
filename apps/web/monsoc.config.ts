@@ -10,9 +10,8 @@ const config = {
   rpcUrl: process.env.NEXT_PUBLIC_RPC_URL ?? "http://127.0.0.1:8546",
 
   theme: {
-    // brand gradient (accent → accent2), tuned separately for light and dark
+    // brand color, tuned separately for light and dark
     accent: { light: "#7c3aed", dark: "#a78bfa" },
-    accent2: { light: "#db2777", dark: "#f472b6" },
   },
 
   /** feed ids from the FeedRegistry shown in the switcher, in order; empty = every active feed */

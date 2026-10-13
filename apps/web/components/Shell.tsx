@@ -43,8 +43,8 @@ const NAV: NavItem[] = [
 export function Logo({ size = 30 }: { size?: number }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-[30%] font-display font-extrabold text-white shadow-soft"
-      style={{ width: size, height: size, fontSize: size * 0.55, backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
+      className="inline-flex shrink-0 items-center justify-center rounded-[30%] bg-accent font-display font-extrabold text-on-accent shadow-soft"
+      style={{ width: size, height: size, fontSize: size * 0.55 }}
     >
       {cfg.name.slice(0, 1).toLowerCase()}
     </span>
@@ -127,7 +127,7 @@ function NavLink({ item, on, badge = 0 }: { item: NavItem; on: boolean; badge?: 
       <Icon size={20} strokeWidth={on ? 2.4 : 1.9} className={on ? "text-accent" : "transition group-hover:text-text"} />
       <span className="hidden xl:inline">{item.label}</span>
       {badge > 0 && (
-        <span className="absolute -right-1 -top-1 rounded-full xl:static xl:ml-auto px-1.5 text-[10px] font-bold leading-[18px] text-white" style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
+        <span className="absolute -right-1 -top-1 rounded-full xl:static xl:ml-auto bg-accent px-1.5 text-[10px] font-bold leading-[18px] text-on-accent">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
@@ -274,17 +274,14 @@ function GuestBar() {
   if (hidden) return null;
   return (
     <div className="fixed inset-x-3 bottom-[84px] z-30 animate-pop md:inset-x-auto md:bottom-5 md:left-1/2 md:w-[min(640px,calc(100%-2rem))] md:-translate-x-1/2">
-      <div
-        className="flex items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-pop"
-        style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
-      >
+      <div className="flex items-center gap-3 rounded-2xl bg-text px-4 py-3 text-bg shadow-pop">
         <div className="min-w-0 flex-1">
           <p className="font-display font-bold leading-tight">Join {cfg.name}</p>
-          <p className="hidden truncate text-xs text-white/85 sm:block">Own your audience, pick your feed, back creators early.</p>
+          <p className="hidden truncate text-xs opacity-75 sm:block">Own your audience, pick your feed, back creators early.</p>
         </div>
-        <Link href="/login" className="btn border border-white/40 px-3 text-white hover:bg-white/10">Log in</Link>
-        <Link href="/onboarding" className="btn bg-white px-3 text-[#1b1724] hover:bg-white/90">Sign up</Link>
-        <button aria-label="Dismiss" className="rounded-full p-1 text-white/80 hover:bg-white/15" onClick={() => setHidden(true)}>
+        <Link href="/login" className="btn border border-current/30 px-3 hover:bg-bg/10">Log in</Link>
+        <Link href="/onboarding" className="btn bg-accent px-3 text-on-accent hover:brightness-110">Sign up</Link>
+        <button aria-label="Dismiss" className="rounded-full p-1 opacity-70 hover:bg-bg/10 hover:opacity-100" onClick={() => setHidden(true)}>
           <X size={16} />
         </button>
       </div>

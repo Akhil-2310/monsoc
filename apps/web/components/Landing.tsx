@@ -60,7 +60,7 @@ export function Landing() {
             Live on Monad testnet
           </span>
           <h1 className="mt-5 font-display text-[44px] font-extrabold leading-[1.02] tracking-tight sm:text-6xl">
-            Social where reach is <span className="gradient-text">earned</span>, and early fans <span className="gradient-text">get paid</span>.
+            Social where reach is <span className="text-accent">earned</span>, and early fans <span className="text-accent">get paid</span>.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted">
             Own your identity, your audience and your feed. No platform decides who gets seen, and the people who spot talent early share in its
@@ -85,10 +85,6 @@ export function Landing() {
 
         {/* a real live market, not a mockup */}
         <div className="relative">
-          <div
-            className="absolute -inset-6 -z-10 rounded-[40px] opacity-60 blur-3xl"
-            style={{ backgroundImage: "radial-gradient(closest-side, var(--accent), transparent), radial-gradient(closest-side at 80% 70%, var(--accent-2), transparent)" }}
-          />
           {featured ? (
             <div className="rotate-[-1.5deg] transition hover:rotate-0">
               <MarketCard m={featured} inFeed />
@@ -108,10 +104,7 @@ export function Landing() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f) => (
             <div key={f.title} className="card p-5 transition hover:-translate-y-0.5 hover:shadow-pop">
-              <span
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white"
-                style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
-              >
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
                 <f.icon size={20} />
               </span>
               <h3 className="mt-4 font-display text-lg font-bold">{f.title}</h3>

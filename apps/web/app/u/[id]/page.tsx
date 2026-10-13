@@ -63,7 +63,7 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       <div className="border-b border-line">
         <div
           className="h-36 bg-cover bg-center"
-          style={{ backgroundImage: p.banner ? `url("${mediaUrl(p.banner)}")` : DEFAULT_BANNER }}
+          style={p.banner ? { backgroundImage: `url("${mediaUrl(p.banner)}")` } : { backgroundColor: DEFAULT_BANNER }}
         />
         <div className="px-4 pb-4">
           <div className="-mt-10 flex items-end justify-between gap-3">

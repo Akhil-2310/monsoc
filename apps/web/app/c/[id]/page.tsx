@@ -228,7 +228,7 @@ function ChatRoom({ community, room, canPost }: { community: number; room: strin
         {msgs.map((m) => (
           <div key={m.hash} className={`flex gap-2 ${m.data.fid === fid ? "flex-row-reverse" : ""}`}>
             <Avatar fid={m.data.fid} handle={handles[m.data.fid]} size={28} />
-            <div className={`max-w-[75%] rounded-2xl px-3 py-1.5 text-sm ${m.data.fid === fid ? "bg-accent text-white" : "bg-panel-2"}`}>
+            <div className={`max-w-[75%] rounded-2xl px-3 py-1.5 text-sm ${m.data.fid === fid ? "bg-accent text-on-accent" : "bg-panel-2"}`}>
               <div className="text-[11px] opacity-70">@{handles[m.data.fid] ?? m.data.fid} · {timeAgo(m.data.timestamp)}</div>
               {m.data.body.text}
             </div>
