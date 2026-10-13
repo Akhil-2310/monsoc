@@ -18,6 +18,7 @@ import {
   User,
   Users,
   Wallet,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useSession } from "@/lib/session";
@@ -52,7 +53,7 @@ export function Logo({ size = 30 }: { size?: number }) {
 
 export function Shell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   const path = usePathname();
-  const { fid, profile } = useSession();
+  const { fid, profile, ready } = useSession();
   const unread = useUnreadCount(fid);
   const [more, setMore] = useState(false);
   const items = NAV.filter((n) => (!n.plugin || cfg.plugins[n.plugin]) && (!n.auth || fid));
@@ -60,12 +61,13 @@ export function Shell({ children, aside }: { children: ReactNode; aside?: ReactN
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1200px]">
+    <div className="mx-auto flex min-h-screen max-w-[1280px] justify-center">
       {/* ---------------------------------------------------------- desktop sidebar */}
-      <nav className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-0.5 px-3 py-5 md:flex">
-        <Link href="/" className="mb-6 flex items-center gap-2.5 px-3">
+      {/* icon rail on mid-size screens, full sidebar from xl */}
+      <nav className="sticky top-0 hidden h-screen w-[76px] shrink-0 flex-col items-center gap-0.5 px-3 py-5 md:flex xl:w-60 xl:items-stretch">
+        <Link href="/" className="mb-6 flex items-center gap-2.5 xl:px-3">
           <Logo />
-          <span className="font-display text-xl font-bold tracking-tight">{cfg.name}</span>
+          <span className="hidden font-display text-xl font-bold tracking-tight xl:inline">{cfg.name}</span>
         </Link>
         {items.map((n) => (
           <NavLink key={n.href} item={n} on={active(n.href)} badge={n.href === "/notifications" ? unread : 0} />
@@ -76,8 +78,10 @@ export function Shell({ children, aside }: { children: ReactNode; aside?: ReactN
         </div>
       </nav>
 
-      <main className="min-w-0 flex-1 border-x border-line bg-panel/60 pb-24 backdrop-blur-sm md:pb-0">{children}</main>
-      {aside && <aside className="sticky top-0 hidden h-screen w-[320px] shrink-0 space-y-4 overflow-y-auto px-4 py-5 lg:block">{aside}</aside>}
+      {/* the feed keeps a comfortable reading width; extra space goes to the margins */}
+      <main className="min-w-0 max-w-[680px] flex-1 border-x border-line bg-panel/60 pb-24 backdrop-blur-sm md:pb-0">{children}</main>
+      {aside && <aside className="sticky top-0 hidden h-screen w-[320px] shrink-0 space-y-4 overflow-y-auto px-4 py-5 xl:block">{aside}</aside>}
+      {ready && !fid && <GuestBar />}
 
       {/* ---------------------------------------------------------- mobile tab bar */}
       <nav className="fixed inset-x-3 bottom-3 z-30 flex justify-around rounded-2xl border border-line bg-panel/90 px-1 py-1.5 shadow-pop backdrop-blur-xl md:hidden">
@@ -115,14 +119,15 @@ function NavLink({ item, on, badge = 0 }: { item: NavItem; on: boolean; badge?: 
   return (
     <Link
       href={item.href}
-      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition ${
+      title={item.label}
+      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition ${
         on ? "bg-panel font-semibold text-text shadow-soft" : "text-muted hover:bg-panel/70 hover:text-text"
       }`}
     >
       <Icon size={20} strokeWidth={on ? 2.4 : 1.9} className={on ? "text-accent" : "transition group-hover:text-text"} />
-      {item.label}
+      <span className="hidden xl:inline">{item.label}</span>
       {badge > 0 && (
-        <span className="ml-auto rounded-full px-1.5 text-[10px] font-bold leading-[18px] text-white" style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
+        <span className="absolute -right-1 -top-1 rounded-full xl:static xl:ml-auto px-1.5 text-[10px] font-bold leading-[18px] text-white" style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
           {badge > 99 ? "99+" : badge}
         </span>
       )}
@@ -217,7 +222,7 @@ function AccountMenu() {
   if (!ready) return null;
   if (!fid)
     return (
-      <div className="space-y-2 px-1">
+      <div className="hidden space-y-2 px-1 xl:block">
         <Link href="/onboarding" className="btn-primary w-full">Create account</Link>
         <Link href="/login" className="btn-ghost w-full">Log in</Link>
         <ThemeSwitch />
@@ -228,7 +233,7 @@ function AccountMenu() {
   return (
     <div ref={ref} className="relative">
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-full animate-pop overflow-hidden rounded-2xl border border-line bg-panel p-1 shadow-pop">
+        <div className="absolute bottom-full left-0 z-30 mb-2 w-60 animate-pop overflow-hidden rounded-2xl border border-line bg-panel p-1 shadow-pop">
           <Link href={`/u/${handle}`} className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm hover:bg-panel-2" onClick={() => setOpen(false)}>
             <User size={16} className="text-muted" /> View profile
           </Link>
@@ -250,15 +255,39 @@ function AccountMenu() {
       )}
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2.5 rounded-2xl p-2 text-left transition hover:bg-panel hover:shadow-soft">
         <Avatar fid={fid} handle={profile?.handle} src={profile?.avatar} size={36} />
-        <div className="min-w-0 flex-1 text-sm">
+        <div className="hidden min-w-0 flex-1 text-sm xl:block">
           <div className="truncate font-semibold">{profile?.displayName ?? `@${handle}`}</div>
           <div className="truncate text-xs text-muted">
             @{handle}
             {profile?.scoutTier ? ` · ${profile.scoutTier} scout` : ""}
           </div>
         </div>
-        <MoreHorizontal size={16} className="text-muted" />
+        <MoreHorizontal size={16} className="hidden text-muted xl:block" />
       </button>
+    </div>
+  );
+}
+
+/** Slim, dismissible join prompt for signed-out visitors browsing the feed (instead of a banner in it). */
+function GuestBar() {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return (
+    <div className="fixed inset-x-3 bottom-[84px] z-30 animate-pop md:inset-x-auto md:bottom-5 md:left-1/2 md:w-[min(640px,calc(100%-2rem))] md:-translate-x-1/2">
+      <div
+        className="flex items-center gap-3 rounded-2xl px-4 py-3 text-white shadow-pop"
+        style={{ backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-bold leading-tight">Join {cfg.name}</p>
+          <p className="hidden truncate text-xs text-white/85 sm:block">Own your audience, pick your feed, back creators early.</p>
+        </div>
+        <Link href="/login" className="btn border border-white/40 px-3 text-white hover:bg-white/10">Log in</Link>
+        <Link href="/onboarding" className="btn bg-white px-3 text-[#1b1724] hover:bg-white/90">Sign up</Link>
+        <button aria-label="Dismiss" className="rounded-full p-1 text-white/80 hover:bg-white/15" onClick={() => setHidden(true)}>
+          <X size={16} />
+        </button>
+      </div>
     </div>
   );
 }
