@@ -7,6 +7,7 @@ import { paymentsAbi, tusdAbi, mediaUrl } from "@monsoc/sdk";
 import { useSession, deployment } from "@/lib/session";
 import { timeAgo, errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
+import { useCreatorMarket } from "@/lib/useMarkets";
 import cfg from "@/monsoc.config";
 
 const viewed = new Set<string>();
@@ -84,6 +85,7 @@ export function PostCard({
   const [backed, setBacked] = useState(post.viewer?.backed ?? false);
   const [removed, setRemoved] = useState(false);
   const [menu, setMenu] = useState(false);
+  const market = useCreatorMarket(post.fid);
   const [stats, setStats] = useState(post.stats);
   const [err, setErr] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -226,6 +228,21 @@ export function PostCard({
             </span>
           </div>
 
+          {market && cfg.plugins.markets && (
+            <Link
+              href={`/m/${market.id}`}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-2 py-0.5 text-[11px] text-accent hover:bg-accent/20"
+              title="A live milestone market on this creator"
+            >
+              <span>↗ Market</span>
+              <span className="text-muted">·</span>
+              <span>
+                {market.counted}/{market.target} followers
+              </span>
+              <span className="text-muted">·</span>
+              <span className="text-good">YES {Math.round(market.yesShare * 100)}%</span>
+            </Link>
+          )}
           {post.labels.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {post.labels.map((l) => (

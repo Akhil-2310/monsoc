@@ -6,6 +6,7 @@ import { Avatar } from "./Avatar";
 import { StakeSheet } from "./StakeSheet";
 import { fmtUsd, timeLeft } from "@/lib/markets";
 import { useSession } from "@/lib/session";
+import { refreshMarkets } from "@/lib/useMarkets";
 
 export function marketQuestion(m: MarketInfo) {
   const who = m.creator?.handle ? `@${m.creator.handle}` : `fid ${m.creator?.fid}`;
@@ -37,7 +38,7 @@ export function Progress({ m }: { m: MarketInfo }) {
   );
 }
 
-export function MarketCard({ m, onChanged }: { m: MarketInfo; onChanged?: () => void }) {
+export function MarketCard({ m, onChanged, inFeed = false }: { m: MarketInfo; onChanged?: () => void; inFeed?: boolean }) {
   const { fid } = useSession();
   const [side, setSide] = useState<"yes" | "no" | null>(null);
   const yes = Math.round(m.yesShare * 100);
@@ -45,7 +46,13 @@ export function MarketCard({ m, onChanged }: { m: MarketInfo; onChanged?: () => 
   const isCreator = fid === m.creator?.fid;
 
   return (
-    <div className="card p-4">
+    <div className={inFeed ? "rounded-2xl border border-accent/30 bg-gradient-to-br from-accent-soft to-panel p-4" : "card p-4"}>
+      {inFeed && (
+        <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-accent">
+          <span>↗ Live market</span>
+          <span className="text-muted normal-case tracking-normal">· back creators before they break through</span>
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <Link href={`/u/${m.creator?.handle ?? m.creator?.fid}`}>
           <Avatar fid={m.creator?.fid ?? 0} handle={m.creator?.handle} src={m.creator?.avatar} size={44} />
@@ -78,7 +85,18 @@ export function MarketCard({ m, onChanged }: { m: MarketInfo; onChanged?: () => 
         </div>
       )}
       {m.outcome === "open" && isCreator && <p className="mt-3 text-xs text-muted">This market is about you, so you can't stake on it. You earn 1% of the losing pool.</p>}
-      {side && <StakeSheet marketId={m.id} side={side} onClose={() => setSide(null)} onDone={() => (setSide(null), onChanged?.())} />}
+      {side && (
+        <StakeSheet
+          marketId={m.id}
+          side={side}
+          onClose={() => setSide(null)}
+          onDone={() => {
+            setSide(null);
+            refreshMarkets();
+            onChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,13 +1,29 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import type { FeedInfo } from "@monsoc/sdk";
 import { paymentsAbi, tusdAbi } from "@monsoc/sdk";
 import { useSession, relay, deployment } from "@/lib/session";
 import { loadFeed, type FeedResult } from "@/lib/feeds";
 import { usd, errMsg, pct } from "@/lib/format";
 import { PostCard } from "./PostCard";
+import { MarketCard } from "./MarketCard";
+import { useLiveMarkets } from "@/lib/useMarkets";
 
-export function FeedView({ feed, community, reloadKey = 0 }: { feed: FeedInfo; community?: number; reloadKey?: number }) {
+/** After every MARKET_EVERY posts, a live market card (each market shown once per feed load). */
+const MARKET_EVERY = 6;
+
+export function FeedView({
+  feed,
+  community,
+  reloadKey = 0,
+  showMarkets = false,
+}: {
+  feed: FeedInfo;
+  community?: number;
+  reloadKey?: number;
+  showMarkets?: boolean;
+}) {
+  const liveMarkets = useLiveMarkets();
   const { fid, appKey, call } = useSession();
   const [res, setRes] = useState<FeedResult | null>(null);
   const [subscribed, setSubscribed] = useState(false);
@@ -62,6 +78,18 @@ export function FeedView({ feed, community, reloadKey = 0 }: { feed: FeedInfo; c
     }
   };
 
+  // markets relevant to this feed first (creators who appear in it), then the rest by activity
+  const marketsForFeed = !showMarkets
+    ? []
+    : (() => {
+        const inFeed = new Set(res?.items.map((i) => i.post.fid) ?? []);
+        return [...liveMarkets].sort(
+          (a, b) =>
+            Number(inFeed.has(b.creator?.fid ?? 0)) - Number(inFeed.has(a.creator?.fid ?? 0)) ||
+            Number(b.yesPool) + Number(b.noPool) - (Number(a.yesPool) + Number(a.noPool)),
+        );
+      })();
+
   if (err) return <p className="p-6 text-sm text-bad">{err}</p>;
   if (!res) return <FeedSkeleton />;
 
@@ -92,9 +120,26 @@ export function FeedView({ feed, community, reloadKey = 0 }: { feed: FeedInfo; c
       )}
       {subscribed && <div className="border-b border-line bg-good/10 px-4 py-2 text-xs text-good">Subscribed: your views pay the creators shown here.</div>}
       {res.items.length === 0 && <p className="p-8 text-center text-sm text-muted">Nothing here yet. Follow people or pick another feed.</p>}
-      {res.items.map((i) => (
-        <PostCard key={i.post.hash} post={i.post} reason={i.reason} feedId={feed.id > 0 ? feed.id : 0} />
-      ))}
+      {res.items.map((i, idx) => {
+        const card = <PostCard key={i.post.hash} post={i.post} reason={i.reason} feedId={feed.id > 0 ? feed.id : 0} />;
+        const slot = (idx + 1) % MARKET_EVERY === 0 ? marketsForFeed[(idx + 1) / MARKET_EVERY - 1] : undefined;
+        return slot ? (
+          <Fragment key={i.post.hash}>
+            {card}
+            <div className="border-b border-line px-4 py-3">
+              <MarketCard m={slot} inFeed />
+            </div>
+          </Fragment>
+        ) : (
+          card
+        );
+      })}
+      {/* short feeds still surface a market at the end */}
+      {res.items.length > 0 && res.items.length < MARKET_EVERY && marketsForFeed[0] && (
+        <div className="border-b border-line px-4 py-3">
+          <MarketCard m={marketsForFeed[0]} inFeed />
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { Avatar } from "@/components/Avatar";
 import { useSession, relay } from "@/lib/session";
 import { BUILTIN_FEEDS } from "@/lib/feeds";
 import { usd } from "@/lib/format";
+import { useLiveMarkets } from "@/lib/useMarkets";
+import { timeLeft } from "@/lib/markets";
 import cfg from "@/monsoc.config";
 
 const FEED_KEY = "monsoc.feed";
@@ -67,13 +69,14 @@ export default function Home() {
         </div>
       )}
       <Composer onPosted={() => setReload((r) => r + 1)} />
-      {feed && <FeedView feed={feed} reloadKey={reload} />}
+      {feed && <FeedView feed={feed} reloadKey={reload} showMarkets />}
     </Shell>
   );
 }
 
 function HomeAside() {
   const { fid, following, setFollow } = useSession();
+  const markets = useLiveMarkets();
   const [people, setPeople] = useState<Profile[]>([]);
   const [scouts, setScouts] = useState<{ handle: string | null; fid: number; score: number; scoutTier: string | null }[]>([]);
 
@@ -84,6 +87,26 @@ function HomeAside() {
 
   return (
     <div className="space-y-4">
+      {cfg.plugins.markets && markets.length > 0 && (
+        <div className="card p-4">
+          <h3 className="mb-3 text-sm font-semibold">↗ Live markets</h3>
+          {markets.slice(0, 3).map((m) => (
+            <Link key={m.id} href={`/m/${m.id}`} className="mb-3 flex items-center gap-2 text-sm">
+              <Avatar fid={m.creator?.fid ?? 0} handle={m.creator?.handle} src={m.creator?.avatar} size={28} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate">
+                  @{m.creator?.handle} → <b>{m.target}</b> followers
+                </div>
+                <div className="text-xs text-muted">
+                  {m.counted}/{m.target} · {timeLeft(m.deadline)}
+                </div>
+              </div>
+              <span className="chip bg-good/15 text-good">YES {Math.round(m.yesShare * 100)}%</span>
+            </Link>
+          ))}
+          <Link href="/markets" className="text-xs text-accent">All markets →</Link>
+        </div>
+      )}
       {people.some((p) => p.fid !== fid && !following.has(p.fid)) && (
       <div className="card p-4">
         <h3 className="mb-3 text-sm font-semibold">Who to follow</h3>
