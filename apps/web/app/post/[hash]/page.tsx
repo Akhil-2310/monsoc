@@ -2,7 +2,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import type { Hex } from "viem";
 import type { PostView } from "@monsoc/sdk";
-import { anchorAbi } from "@monsoc/sdk";
+import { anchorAbi, verifyMedia } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { PostCard } from "@/components/PostCard";
 import { Composer } from "@/components/Composer";
@@ -17,6 +17,24 @@ export default function Thread({ params }: { params: Promise<{ hash: string }> }
   const [replies, setReplies] = useState<PostView[]>([]);
   const [proof, setProof] = useState<Proof | null>(null);
   const [verified, setVerified] = useState<boolean | null>(null);
+  const [mediaCheck, setMediaCheck] = useState<string | null>(null);
+
+  const checkMedia = async () => {
+    if (!root?.media?.length) return;
+    setMediaCheck("checking…");
+    try {
+      const results = await Promise.all(root.media.map(verifyMedia));
+      setMediaCheck(
+        results.every((r) => r === "match")
+          ? results.length > 1 ? `✓ all ${results.length} files match the signed hashes` : "✓ file matches the signed hash"
+          : results.includes("mismatch")
+            ? "✗ a file no longer matches the hash its author signed"
+            : "some files have no signed hash (pasted links)",
+      );
+    } catch (e) {
+      setMediaCheck(errMsg(e));
+    }
+  };
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -63,6 +81,10 @@ export default function Thread({ params }: { params: Promise<{ hash: string }> }
               <span>tx {proof.txHash.slice(0, 10)}…</span>
               <span>{proof.proof.length}-step proof</span>
               <button className="btn-ghost btn-sm" onClick={verify}>Verify onchain</button>
+              {root?.media?.length ? (
+                <button className="btn-ghost btn-sm" onClick={checkMedia}>Verify media</button>
+              ) : null}
+              {mediaCheck && <span className={mediaCheck.startsWith("✓") ? "text-good" : mediaCheck.startsWith("✗") ? "text-bad" : ""}>{mediaCheck}</span>}
               {verified !== null && (
                 <span className={verified ? "text-good" : "text-bad"}>{verified ? "✓ Anchor.verify() = true" : "✗ not in root"}</span>
               )}

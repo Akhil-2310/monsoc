@@ -56,3 +56,24 @@ export function validateMedia(media: unknown): string[] {
   }
   return errs;
 }
+
+/**
+ * URL of the exact uploaded bytes. CDNs like ImageKit re-encode for delivery (e.g. PNG → small JPEG),
+ * so integrity checks must fetch the original: ImageKit serves it with tr=orig-true.
+ */
+export function originalMediaUrl(uri: string, gateway?: string): string {
+  if (/^https:\/\/ik\.imagekit\.io\//.test(uri)) return `${uri}${uri.includes("?") ? "&" : "?"}tr=orig-true`;
+  return mediaUrl(uri, { gateway });
+}
+
+/** Re-hash the original file and compare with the sha256 the author signed into the post. */
+export async function verifyMedia(item: MediaItem): Promise<"match" | "mismatch" | "no-hash"> {
+  if (!item.sha256) return "no-hash";
+  const bytes = await fetch(originalMediaUrl(item.uri)).then((r) => {
+    if (!r.ok) throw new Error(`fetch failed (${r.status})`);
+    return r.arrayBuffer();
+  });
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const hex = `0x${[...digest].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  return hex === item.sha256 ? "match" : "mismatch";
+}
