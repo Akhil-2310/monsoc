@@ -8,5 +8,6 @@ export * from "./payout";
 export * from "./chains";
 export * from "./client";
 export * from "./profile";
+export * from "./topics";
 export * from "./generated/abis";
 export { deployments } from "./generated/deployments";

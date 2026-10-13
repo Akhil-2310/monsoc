@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Hex } from "viem";
-import { extractTags, mediaUrl as displayUrl, type MediaItem } from "@monsoc/sdk";
+import { extractTags, mediaUrl as displayUrl, TOPICS, type MediaItem } from "@monsoc/sdk";
 import { uploadMedia, uploadsEnabled } from "@/lib/media";
 import { useSession, relay } from "@/lib/session";
 import { errMsg } from "@/lib/format";
@@ -33,6 +33,7 @@ export function Composer({
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [canUpload, setCanUpload] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,7 +52,9 @@ export function Composer({
   }, [fid, community, parent]);
 
   if (!fid) return null;
-  const tags = extractTags(text);
+  // topics come from the post itself: #hashtags in the text plus topics picked below
+  const tags = [...new Set([...picked, ...extractTags(text)])];
+  const togglePick = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const pickFiles = async (files: FileList | null) => {
     if (!files || !appKey) return;
@@ -103,6 +106,7 @@ export function Composer({
       setAbTest(false);
       setMedia([]);
       setLinkOpen(false);
+      setPicked([]);
       onPosted?.();
     } catch (e) {
       setErr(errMsg(e));
@@ -132,6 +136,21 @@ export function Composer({
               value={variantB}
               onChange={(e) => setVariantB(e.target.value)}
             />
+          )}
+          {!parent && (
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {TOPICS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => togglePick(t.id)}
+                  className={`chip border ${picked.includes(t.id) ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-text"}`}
+                >
+                  {picked.includes(t.id) ? "✓ " : "+ "}
+                  {t.label}
+                </button>
+              ))}
+            </div>
           )}
           {media.length > 0 && (
             <div className={`mt-2 grid gap-2 ${media.length > 1 ? "grid-cols-2" : ""}`}>

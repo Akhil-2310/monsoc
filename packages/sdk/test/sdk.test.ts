@@ -12,6 +12,8 @@ import {
   allocatePayouts,
   anchorTree,
   validateProfile,
+  topicsOf,
+  topicFeed,
   cleanProfile,
   type PostView,
   type FeedDefinition,
@@ -189,5 +191,20 @@ describe("profiles", () => {
   });
   it("cleans empty fields", () => {
     expect(cleanProfile({ displayName: "  A  ", bio: "", url: " " })).toEqual({ displayName: "A" });
+  });
+});
+
+describe("topics", () => {
+  it("maps related tags to topics", () => {
+    expect(topicsOf(["IPL", "monad"])).toEqual(["sports", "crypto"]);
+    expect(topicsOf(["random"])).toEqual([]);
+  });
+  it("topic feeds pull in related tags", () => {
+    const ranked = rankFeed(topicFeed("sports"), [post({ fid: 9, tags: ["cricket"] }), post({ fid: 9, tags: ["ai"] })], {
+      viewerFid: 1,
+      following: new Set(),
+    });
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0]!.post.tags).toEqual(["cricket"]);
   });
 });

@@ -13,6 +13,8 @@ import {
   signupTypedData,
   feedHash,
   DEFAULT_FEEDS,
+  TOPICS,
+  topicFeed,
   Scopes,
   KeyTypes,
   feedsAbi,
@@ -60,24 +62,33 @@ async function main() {
   kvSet("labeler.fid", String(fid));
   kvSet("labelers.default", JSON.stringify([fid]));
 
+  // add any missing feeds by name, so re-running after an upgrade publishes only what's new
   const existing = await relay.feeds();
-  if (existing.length) {
-    console.log(`[bootstrap] ${existing.length} feeds already registered, skipping`);
-    return;
-  }
-  for (const def of Object.values(DEFAULT_FEEDS)) {
+  const have = new Set(existing.map((f) => f.name));
+  const general = [DEFAULT_FEEDS.home!, DEFAULT_FEEDS.conversations!, DEFAULT_FEEDS.noBait!];
+  const topics = TOPICS.map((t) => topicFeed(t.id));
+  for (const def of [...general, ...topics]) {
+    if (have.has(def.name)) continue;
     const uri = dataUri({ name: def.name, description: def.description, definition: def });
     await call(deployment.feeds, feedsAbi, "create", [BigInt(fid), 0, uri, feedHash(def), 0n, 0, Math.round(def.discovery * 10_000)]);
     console.log(`[bootstrap] feed: ${def.name}`);
   }
   // reference hosted feed served by this relay (free); anyone can register their own
-  const hosted = {
-    name: "High signal",
-    description: "Reputable authors with real conversations. Server-ranked.",
-    endpoint: `${config.publicUrl}/hosted/high-signal`,
-  };
-  await call(deployment.feeds, feedsAbi, "create", [BigInt(fid), 1, dataUri(hosted), keccak256(toBytes(JSON.stringify(hosted))), 0n, 0, 1500]);
-  console.log(`[bootstrap] feed: ${hosted.name} (hosted)`);
+  if (!have.has("High signal")) {
+    const hosted = {
+      name: "High signal",
+      description: "Reputable authors with real conversations. Server-ranked.",
+      endpoint: `${config.publicUrl}/hosted/high-signal`,
+    };
+    await call(deployment.feeds, feedsAbi, "create", [BigInt(fid), 1, dataUri(hosted), keccak256(toBytes(JSON.stringify(hosted))), 0n, 0, 1500]);
+    console.log(`[bootstrap] feed: ${hosted.name} (hosted)`);
+  }
+  // the AI topic feed supersedes the older single-tag "AI builders" feed
+  const legacy = existing.find((f) => f.name === DEFAULT_FEEDS.ai!.name && f.ownerFid === fid && f.active);
+  if (legacy) {
+    await call(deployment.feeds, feedsAbi, "setActive", [BigInt(legacy.id), false]);
+    console.log(`[bootstrap] retired feed: ${legacy.name}`);
+  }
   console.log("[bootstrap] done");
 }
 
