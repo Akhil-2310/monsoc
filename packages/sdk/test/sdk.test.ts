@@ -35,6 +35,7 @@ function post(p: Partial<PostView> & { fid: number }): PostView {
     media: [],
     community: null,
     parent: null,
+    market: null,
     labels: [],
     trial: null,
     stats: { likes: 0, replies: 0, reposts: 0, backs: 0, views: 0, depth: 0 },

@@ -41,6 +41,7 @@ interface PostRow {
   media: string;
   community: number | null;
   parent: Hex | null;
+  market: number | null;
   trial: string | null;
   trial_status: "testing" | "released" | "dropped" | null;
   handle: string | null;
@@ -76,6 +77,7 @@ function toView(r: PostRow, viewer: number): PostView {
     media: JSON.parse(r.media),
     community: r.community,
     parent: r.parent,
+    market: r.market ?? null,
     labels: r.label_list ? r.label_list.split(",") : [],
     trial: r.trial ? { ...JSON.parse(r.trial), status: r.trial_status } : null,
     stats: {

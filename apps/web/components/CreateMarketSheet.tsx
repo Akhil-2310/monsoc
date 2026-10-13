@@ -5,6 +5,7 @@ import { decodeEventLog } from "viem";
 import { marketsAbi } from "@monsoc/sdk";
 import { useSession, deployment, publicClient } from "@/lib/session";
 import { errMsg } from "@/lib/format";
+import { compact, friendlyDate } from "./MarketCard";
 
 const DURATIONS = [
   { label: "24 hours", s: 86_400 },
@@ -15,7 +16,8 @@ const DURATIONS = [
 
 /** Open a milestone market on a creator who has opted in. */
 export function CreateMarketSheet({ creatorFid, handle, followers, onClose }: { creatorFid: number; handle: string; followers: number; onClose: () => void }) {
-  const { fid, call } = useSession();
+  const { fid, call, send } = useSession();
+  const [take, setTake] = useState("");
   const router = useRouter();
   // small creators need small, reachable milestones; bigger ones scale
   const presets = [...new Set([followers + 1, followers + 5, Math.max(followers * 2, followers + 10), followers + 100])].sort((a, b) => a - b);
@@ -37,7 +39,12 @@ export function CreateMarketSheet({ creatorFid, handle, followers, onClose }: { 
       for (const log of receipt.logs) {
         try {
           const ev = decodeEventLog({ abi: marketsAbi, data: log.data, topics: log.topics });
-          if (ev.eventName === "MarketCreated") return router.push(`/m/${ev.args.marketId}`);
+          if (ev.eventName === "MarketCreated") {
+            const marketId = Number(ev.args.marketId);
+            // optional: tell your followers why, with the market attached to the post
+            if (take.trim()) await send("post", { text: take.trim(), market: marketId }).catch(() => undefined);
+            return router.push(`/m/${marketId}`);
+          }
         } catch {}
       }
       onClose();
@@ -77,16 +84,24 @@ export function CreateMarketSheet({ creatorFid, handle, followers, onClose }: { 
         </div>
 
         <div className="mt-4 rounded-xl bg-panel-2 p-3 text-sm">
-          “Will @{handle} reach <b>{valid ? t : "…"}</b> followers by{" "}
-          <b>{new Date(Date.now() + duration * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</b>?”
+          “Will @{handle} hit <b>{valid ? compact(t) : "…"}</b> followers by <b>{friendlyDate(Date.now() + duration * 1000)}</b>?”
           <p className="mt-1 text-[11px] text-muted">
             Only accounts that exist right now count toward the target, so new fake accounts can't swing it. Settles automatically from the onchain
             follow graph.
           </p>
         </div>
+        <p className="mt-4 text-xs text-muted">Share your take (optional)</p>
+        <textarea
+          className="input mt-1"
+          rows={2}
+          maxLength={280}
+          placeholder={`Why will @${handle} get there? This posts to your followers with the market attached.`}
+          value={take}
+          onChange={(e) => setTake(e.target.value)}
+        />
         {err && <p className="mt-2 text-xs text-bad">{err}</p>}
         <button className="btn-primary mt-3 w-full py-2.5" disabled={!valid || busy} onClick={create}>
-          {busy ? "Opening…" : "Open market"}
+          {busy ? "Opening…" : take.trim() ? "Open market & post" : "Open market"}
         </button>
       </div>
     </div>

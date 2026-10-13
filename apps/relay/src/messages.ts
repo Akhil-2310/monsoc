@@ -8,6 +8,7 @@ import {
   validateMedia,
   appKeysAbi,
   communitiesAbi,
+  marketsAbi,
   Scopes,
   type SignedMessage,
   type PostBody,
@@ -164,6 +165,16 @@ async function validateBody(msg: SignedMessage) {
         if (t.variant && !t.groupId) reject("variant needs groupId");
       }
       if (p.community !== undefined && !(await isMember(p.community, fid))) reject("not a member of this community");
+      if (p.market !== undefined) {
+        if (!Number.isInteger(p.market) || p.market <= 0 || !deployment.markets) reject("bad market");
+        // just-created markets may not be indexed yet: fall back to the contract
+        const known =
+          !!get("SELECT 1 FROM markets WHERE id = ?", p.market!) ||
+          (
+            await publicClient.readContract({ address: deployment.markets!, abi: marketsAbi, functionName: "getMarket", args: [BigInt(p.market!)] })
+          ).openedAt !== 0n;
+        if (!known) reject("unknown market");
+      }
       break;
     }
     case "like":
@@ -245,8 +256,8 @@ function apply(msg: SignedMessage) {
         depth = parent.depth + 1;
       }
       run(
-        `INSERT INTO posts(hash, fid, type, ts, text, tags, links, media, community, parent, root, depth, trial, trial_status, trial_group)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO posts(hash, fid, type, ts, text, tags, links, media, community, parent, root, depth, trial, trial_status, trial_group, market)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         msg.hash,
         fid,
         type,
@@ -262,6 +273,7 @@ function apply(msg: SignedMessage) {
         p.trial ? JSON.stringify(p.trial) : null,
         p.trial ? "testing" : null,
         p.trial?.groupId ?? null,
+        p.market ?? null,
       );
       for (const t of tags) run("INSERT OR IGNORE INTO post_tags(hash, tag) VALUES(?,?)", msg.hash, t);
       // @mentions notify (trials stay quiet until released, so strangers' tests don't ping people)

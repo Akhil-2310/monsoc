@@ -9,7 +9,10 @@ import { marketQuestion } from "./MarketCard";
 const PRESETS = [1, 5, 10, 25];
 
 export function StakeSheet({ marketId, side, onClose, onDone }: { marketId: number; side: "yes" | "no"; onClose: () => void; onDone: () => void }) {
-  const { fid, appKey, call } = useSession();
+  const { fid, appKey, call, send } = useSession();
+  const [staked, setStaked] = useState<number | null>(null);
+  const [shareText, setShareText] = useState("");
+  const [sharing, setSharing] = useState(false);
   const [m, setM] = useState<MarketDetail | null>(null);
   const [amount, setAmount] = useState("5");
   const [busy, setBusy] = useState(false);
@@ -30,13 +33,49 @@ export function StakeSheet({ marketId, side, onClose, onDone }: { marketId: numb
     setErr(null);
     try {
       await placeStake(call, appKey.address, fid, marketId, side === "yes", n);
-      onDone();
+      setStaked(n);
+      setShareText(
+        side === "yes"
+          ? `Backing @${m.creator?.handle} to hit ${m.target} followers. Get in early 👀`
+          : `Calling it: @${m.creator?.handle} won't hit ${m.target} followers in time.`,
+      );
     } catch (e) {
       setErr(errMsg(e));
     } finally {
       setBusy(false);
     }
   };
+
+  const share = async () => {
+    setSharing(true);
+    setErr(null);
+    try {
+      await send("post", { text: shareText.trim(), market: marketId });
+      onDone();
+    } catch (e) {
+      setErr(errMsg(e));
+      setSharing(false);
+    }
+  };
+
+  // after staking: offer to post the bet (with the market attached) so followers can join in
+  if (staked !== null)
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onDone}>
+        <div className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-bold text-good">✓ You backed {side.toUpperCase()} with ${staked}</h3>
+          <p className="mt-1 text-sm text-muted">Share your bet? Your followers see it with the market attached and can back it too.</p>
+          <textarea className="input mt-3" rows={3} maxLength={280} value={shareText} onChange={(e) => setShareText(e.target.value)} />
+          {err && <p className="mt-2 text-xs text-bad">{err}</p>}
+          <div className="mt-3 flex gap-2">
+            <button className="btn-ghost flex-1" onClick={onDone}>Not now</button>
+            <button className="btn-primary flex-1" disabled={sharing || !shareText.trim()} onClick={share}>
+              {sharing ? "Posting…" : "Share your bet"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>

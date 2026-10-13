@@ -333,6 +333,15 @@ CREATE TABLE IF NOT EXISTS sponsor_usage (
 );
 `);
 
+// additive migrations for databases created before a column existed
+for (const sql of ["ALTER TABLE posts ADD COLUMN market INTEGER"]) {
+  try {
+    db.exec(sql);
+  } catch {
+    // column already exists
+  }
+}
+
 export function kvGet(key: string): string | undefined {
   const row = db.prepare("SELECT value FROM kv WHERE key = ?").get(key) as { value: string } | undefined;
   return row?.value;

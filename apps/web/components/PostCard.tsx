@@ -7,7 +7,8 @@ import { paymentsAbi, tusdAbi, mediaUrl } from "@monsoc/sdk";
 import { useSession, deployment } from "@/lib/session";
 import { timeAgo, errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
-import { useCreatorMarket } from "@/lib/useMarkets";
+import { useCreatorMarket, useMarket } from "@/lib/useMarkets";
+import { MarketCard } from "./MarketCard";
 import cfg from "@/monsoc.config";
 
 const viewed = new Set<string>();
@@ -85,7 +86,10 @@ export function PostCard({
   const [backed, setBacked] = useState(post.viewer?.backed ?? false);
   const [removed, setRemoved] = useState(false);
   const [menu, setMenu] = useState(false);
-  const market = useCreatorMarket(post.fid);
+  const creatorMarket = useCreatorMarket(post.fid);
+  const attached = useMarket(post.market);
+  // the chip points at the author's own live market, unless the post already embeds that market
+  const market = creatorMarket && creatorMarket.id !== post.market ? creatorMarket : undefined;
   const [stats, setStats] = useState(post.stats);
   const [err, setErr] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -290,6 +294,11 @@ export function PostCard({
             </Link>
           )}
 
+          {post.market && cfg.plugins.markets && (
+            <div className="mt-2">
+              {attached ? <MarketCard m={attached} /> : <div className="h-24 animate-pulse rounded-2xl bg-panel-2" />}
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-5 text-[13px] text-muted">
             <Link href={`/post/${post.hash}`} className="hover:text-text">↩ {stats.replies}</Link>
             <button disabled={!fid || repostHash === PENDING} onClick={toggleRepost} title={repostHash ? "Undo repost" : "Repost"} className={`hover:text-good ${repostHash ? "text-good" : ""}`}>⟲ {stats.reposts}</button>

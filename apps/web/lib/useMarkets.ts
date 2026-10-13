@@ -52,3 +52,17 @@ export function useCreatorMarket(creatorFid: number): MarketInfo | undefined {
     .filter((m) => m.creator?.fid === creatorFid)
     .sort((a, b) => a.deadline - b.deadline)[0];
 }
+
+// Any market by id (open or settled), for markets embedded in posts. Cached per page load.
+const byId = new Map<number, Promise<MarketInfo | null>>();
+
+export function useMarket(id: number | null | undefined): MarketInfo | null {
+  const live = useLiveMarkets().find((m) => m.id === id) ?? null;
+  const [fetched, setFetched] = useState<MarketInfo | null>(null);
+  useEffect(() => {
+    if (!id || live) return;
+    if (!byId.has(id)) byId.set(id, relay.market(id).catch(() => null));
+    byId.get(id)!.then(setFetched);
+  }, [id, live]);
+  return live ?? fetched;
+}

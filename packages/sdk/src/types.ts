@@ -56,6 +56,8 @@ export interface PostBody {
   media?: MediaItem[];
   community?: number;
   lang?: string;
+  /** a CreatorMarkets market this post is about; clients render the live market card under it */
+  market?: number;
 }
 
 export interface ReplyBody extends PostBody {
@@ -203,6 +205,7 @@ export interface PostView {
   media: PostBody["media"];
   community: number | null;
   parent: Hex | null;
+  market: number | null;
   labels: string[];
   trial: (TrialBody["trial"] & { status: "testing" | "released" | "dropped" }) | null;
   stats: { likes: number; replies: number; reposts: number; backs: number; views: number; depth: number };

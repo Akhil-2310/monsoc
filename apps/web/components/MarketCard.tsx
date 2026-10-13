@@ -8,10 +8,25 @@ import { fmtUsd, timeLeft } from "@/lib/markets";
 import { useSession } from "@/lib/session";
 import { refreshMarkets } from "@/lib/useMarkets";
 
+export const compact = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n));
+
+/** "tomorrow", "this Friday", "next Tuesday", otherwise "30 Nov". */
+export function friendlyDate(ms: number): string {
+  const d = new Date(ms);
+  const day = (x: Date) => Math.floor(new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime() / 86_400_000);
+  const diff = day(d) - day(new Date());
+  if (diff <= 0) return "today";
+  if (diff === 1) return "tomorrow";
+  const weekday = d.toLocaleDateString(undefined, { weekday: "long" });
+  if (diff < 7) return `this ${weekday}`;
+  if (diff < 14) return `next ${weekday}`;
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+/** The one question a market settles on, generated from its onchain parameters. */
 export function marketQuestion(m: MarketInfo) {
-  const who = m.creator?.handle ? `@${m.creator.handle}` : `fid ${m.creator?.fid}`;
-  const by = new Date(m.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-  return `Will ${who} reach ${m.target.toLocaleString()} followers by ${by}?`;
+  const who = m.creator?.displayName ? `${m.creator.displayName} (@${m.creator.handle})` : m.creator?.handle ? `@${m.creator.handle}` : `fid ${m.creator?.fid}`;
+  return `Will ${who} hit ${compact(m.target)} followers by ${friendlyDate(m.deadline)}?`;
 }
 
 export function OutcomeChip({ m }: { m: MarketInfo }) {
