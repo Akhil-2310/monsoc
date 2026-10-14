@@ -11,7 +11,7 @@ import { fmtUsd } from "@/lib/markets";
 import { errMsg, timeAgo } from "@/lib/format";
 import cfg from "@/monsoc.config";
 
-const EXPLORER = cfg.chainId === 10143 ? "https://testnet.monadexplorer.com" : null;
+const EXPLORER = cfg.chainId === 10143 ? "https://testnet.monadvision.com" : null;
 
 export default function MarketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
