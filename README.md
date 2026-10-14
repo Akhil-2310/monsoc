@@ -77,16 +77,6 @@ contracts       Foundry: identity, app keys, signup, follows, feeds, payments, a
 | Wallet-seeded onboarding and starter packs | `GET /v1/onboarding/:address` |
 | Example hosted feed | `GET /hosted/high-signal` |
 
-### Design notes
-
-* **Media via ImageKit.** Browsers upload directly with a 10-minute token the relay signs after checking the request comes from an active app key (30 uploads per account per hour). Posts store the URL plus the file's SHA-256, so a swapped file is detectable and media can later move to IPFS without changing posts.
-* **Metadata** for feeds and communities goes onchain as `data:` URIs for zero-dependency demos. Use `ipfs://` in production; the indexer already resolves it.
-* **The test stablecoin trusts the forwarder** so app keys can approve gaslessly. With real USDC, use EIP-2612 / EIP-3009 permits instead.
-* **MON price** comes from `AdminPriceOracle`, an operator-set testnet stand-in for a real oracle or DEX TWAP.
-* **Sponsored requests can't carry value.** MON payments come from the user's own wallet; stablecoin payments are fully gasless.
-* **Milestone markets.** Stakes are time-weighted (2x at open, 1x at the deadline). Winners get their stake back plus the losing pool split by weight; 1% goes to the creator and 1% to the protocol. Anyone can submit follower fids; the contract verifies each follow and counts it once. Only accounts with `fid <= maxFid` count. The keeper automates counting and settlement but holds no special power. Known limits: a creator could pre-create follower accounts before opening a market; reputation weighting is the next step. Testnet uses play money (tUSD); real money needs per-country legal review.
-* **Not built yet:** creator shares, and encrypted DMs and group chats (planned on MLS or XMTP). `KeyTypes.X25519` is reserved in the key registry for chat keys.
-
 ## Deployed contracts (Monad testnet)
 
 Chain 10143, deployed from block 70755753. All 13 contracts are **verified** (Sourcify exact match), so the source is readable on [MonadVision](https://testnet.monadvision.com).
