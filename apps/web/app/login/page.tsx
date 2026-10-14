@@ -10,7 +10,8 @@ import cfg from "@/monsoc.config";
 
 export default function Login() {
   const router = useRouter();
-  const { fid, ready, login } = useSession();
+  const { fid, ready, login, recoverWithBackup } = useSession();
+  const [recovering, setRecovering] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [hasBrowserKey, setHasBrowserKey] = useState(false);
@@ -56,6 +57,25 @@ export default function Login() {
           </button>
         )}
         {err && <p className="mt-3 text-sm text-bad">{err}</p>}
+        <button
+          className="mt-4 w-full text-center text-xs font-semibold text-muted hover:text-text"
+          disabled={busy || recovering}
+          onClick={async () => {
+            setRecovering(true);
+            setErr(null);
+            try {
+              const handle = await recoverWithBackup();
+              router.push(handle ? `/u/${handle}` : "/");
+            } catch (e) {
+              const m = errMsg(e);
+              setErr(/NotAllowed|cancel/i.test(m) ? "Passkey prompt was cancelled." : m);
+            } finally {
+              setRecovering(false);
+            }
+          }}
+        >
+          {recovering ? "Recovering…" : "Lost your passkey? Recover with a backup passkey"}
+        </button>
         <p className="mt-5 text-center text-sm text-muted">
           New here? <Link href="/onboarding" className="text-accent hover:underline">Create an account</Link>
         </p>

@@ -127,6 +127,7 @@ export function postsByHash(hashes: string[], labelers?: number[], viewer?: numb
 interface ProfileRow {
   fid: number;
   custody: string;
+  recovery: string | null;
   handle: string | null;
   created_at: number;
   followers: number;
@@ -143,7 +144,7 @@ interface ProfileRow {
 }
 
 const PROFILE_SELECT = `
-SELECT u.fid, u.custody, u.handle, u.created_at,
+SELECT u.fid, u.custody, u.recovery, u.handle, u.created_at,
   (SELECT COUNT(*) FROM follows f WHERE f.target = u.fid) AS followers,
   (SELECT COUNT(*) FROM follows f WHERE f.fid = u.fid) AS following,
   r.rep, r.verified_followers, s.score,
@@ -159,6 +160,7 @@ function toProfile(r: ProfileRow): Profile {
   return {
     fid: r.fid,
     custody: r.custody as Profile["custody"],
+    recovery: (r.recovery as Profile["recovery"]) ?? null,
     handle: r.handle,
     followers: r.followers,
     following: r.following,

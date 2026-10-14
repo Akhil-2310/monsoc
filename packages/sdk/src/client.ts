@@ -3,6 +3,7 @@ import type { ForwardRequestData, SignupParams } from "./meta";
 import type { Notification, PostView, Profile, SignedMessage } from "./types";
 import type { FeedDefinition } from "./feed";
 
+
 export interface FeedInfo {
   id: number;
   ownerFid: number;
@@ -172,6 +173,9 @@ export class RelayClient {
   }
   userByCustody(address: Address) {
     return this.req<Profile | null>(`/v1/custody/${address}`);
+  }
+  recoverableBy(address: Address) {
+    return this.req<{ fid: number; handle: string | null }[]>(`/v1/recovery/${address}`);
   }
   followers(fid: number) {
     return this.req<Profile[]>(`/v1/users/${fid}/followers`);

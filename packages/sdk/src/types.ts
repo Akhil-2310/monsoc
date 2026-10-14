@@ -175,6 +175,8 @@ export interface SignedMessage<T extends MessageType = MessageType> {
 export interface Profile {
   fid: number;
   custody: Address;
+  /** recovery address; equal to custody when no separate backup is set */
+  recovery: Address | null;
   handle: string | null;
   followers: number;
   following: number;

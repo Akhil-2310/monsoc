@@ -24,15 +24,21 @@ export interface Connected {
 export interface CustodyProvider {
   id: string;
   label: string;
-  /** First visit: create the credential. `name` is shown in the user's passkey manager. */
-  create(name: string): Promise<Connected>;
-  /** Later visits, on any device the passkey has synced to. */
-  connect(): Promise<Connected>;
+  /**
+   * First visit: create the credential. `name` is shown in the user's passkey manager. `pin: false` creates
+   * an extra credential (e.g. a backup) without making it the one this browser offers at sign-in.
+   */
+  create(name: string, opts?: { pin?: boolean }): Promise<Connected>;
+  /** Later visits, on any device the passkey has synced to. `any: true` lets the user pick any passkey for this site. */
+  connect(opts?: { any?: boolean }): Promise<Connected>;
 }
 
 // ------------------------------------------------------------------ Mera (passkey, default)
 
 const CRED_KEY = "monsoc.passkeyCredential";
+
+/** The passkey domain: a fixed configured name in production, or the current host in development. */
+export const rpId = () => cfg.passkeyRpId || location.hostname;
 const CUSTODY_PATH = "m/44'/60'/0'/0/0";
 const APP_KEY_PATH = "m/44'/60'/0'/0/1";
 
@@ -63,21 +69,21 @@ function accountsFromPrf(prfOutput: Uint8Array): Connected {
 export const meraProvider: CustodyProvider = {
   id: "mera",
   label: "Passkey",
-  async create(name) {
+  async create(name, opts) {
     const res = await createPasskeyWithPrfOutput({
-      rp: { id: location.hostname, name: cfg.name },
+      rp: { id: rpId(), name: cfg.name },
       user: { name, displayName: `@${name} on ${cfg.name}` },
     });
     const { prfOutput, prfSalt, ...credential } = res;
     void prfSalt; // mera uses a stable default salt, so sign-in reproduces the same bytes
-    localStorage.setItem(CRED_KEY, JSON.stringify(credential));
+    if (opts?.pin !== false) localStorage.setItem(CRED_KEY, JSON.stringify(credential));
     return accountsFromPrf(prfOutput);
   },
-  async connect() {
-    const saved = localStorage.getItem(CRED_KEY);
+  async connect(opts) {
+    const saved = opts?.any ? null : localStorage.getItem(CRED_KEY);
     // Without a pinned credential the browser offers any passkey it holds for this site.
     const { prfOutput } = await getPasskeyPrfOutput({
-      rpId: location.hostname,
+      rpId: rpId(),
       credential: saved ? JSON.parse(saved) : undefined,
     });
     return accountsFromPrf(prfOutput);

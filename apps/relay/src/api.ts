@@ -123,6 +123,15 @@ app.get("/v1/custody/:address", (c) => {
   const row = get<{ fid: number }>("SELECT fid FROM users WHERE custody = ?", c.req.param("address").toLowerCase());
   return c.json(row ? profile(row.fid) : null);
 });
+/** Accounts that list `address` as their recovery address (excluding ones where it's also the custody). */
+app.get("/v1/recovery/:address", (c) =>
+  c.json(
+    all<{ fid: number; handle: string | null }>(
+      "SELECT fid, handle FROM users WHERE recovery = ? AND custody != recovery",
+      c.req.param("address").toLowerCase(),
+    ),
+  ),
+);
 app.get("/v1/users/:fid/followers", (c) =>
   c.json(profiles("u.fid IN (SELECT fid FROM follows WHERE target = ?)", [fidParam(c.req.param("fid"))])),
 );

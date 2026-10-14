@@ -153,6 +153,7 @@ export default function Wallet() {
             Revoke this app key
           </button>
         </section>
+        <RecoverySection />
         <RelationsSection />
         {msg && <p className="text-sm text-muted">{msg}</p>}
       </div>
@@ -188,6 +189,55 @@ function RelationsSection() {
         {shown.blocked.map((p) => row(p, "block"))}
         {shown.muted.map((p) => row(p, "mute"))}
       </div>
+    </section>
+  );
+}
+
+/** Backup passkey = the account's recovery address. Without one, losing the passkey loses the account. */
+function RecoverySection() {
+  const { profile, custody, addBackupPasskey } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!profile || !custody) return null;
+  const hasBackup = !!profile.recovery && profile.recovery.toLowerCase() !== custody.toLowerCase();
+
+  const add = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await addBackupPasskey();
+      setMsg("Backup passkey saved. Keep it somewhere other than your main passkey.");
+    } catch (e) {
+      const m = errMsg(e);
+      setMsg(/PRF/i.test(m) ? "This browser's passkey manager can't create Mera passkeys (no PRF support). Try Safari or Chrome." : /NotAllowed|cancel/i.test(m) ? "Passkey prompt was cancelled." : m);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card p-4">
+      <h3 className="font-semibold">Account recovery</h3>
+      {hasBackup ? (
+        <p className="mt-1 text-sm">
+          <span className="text-good">✓ Backup passkey set</span>{" "}
+          <span className="font-mono text-xs text-muted">
+            ({profile.recovery!.slice(0, 6)}…{profile.recovery!.slice(-4)})
+          </span>
+        </p>
+      ) : (
+        <p className="mt-1 rounded-xl bg-warn/10 px-3 py-2 text-sm text-warn">
+          No backup yet. If you lose your passkey, you lose this account.
+        </p>
+      )}
+      <p className="mt-2 text-xs text-muted">
+        A backup passkey can take over your account if your main one is lost. Create it in a different place than your main passkey, for
+        example 1Password if your main one is in iCloud Keychain, or a security key. You'll confirm with your current passkey.
+      </p>
+      <button className={`${hasBackup ? "btn-ghost" : "btn-primary"} btn-sm mt-3`} disabled={busy} onClick={add}>
+        {busy ? "Waiting for passkeys…" : hasBackup ? "Replace backup passkey" : "Add backup passkey"}
+      </button>
+      {msg && <p className="mt-2 text-xs text-muted">{msg}</p>}
     </section>
   );
 }

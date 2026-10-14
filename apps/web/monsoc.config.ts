@@ -26,6 +26,14 @@ const config = {
     markets: true, // milestone markets on creators (testnet play money; gate by country before real money)
   },
 
+  /**
+   * Domain passkeys are registered to (WebAuthn rpId). Set it to your production domain and never change
+   * it: passkeys only work for this exact name. If you later move the app to a new domain, keep this value
+   * and list the new origin in PASSKEY_RELATED_ORIGINS on the old domain (Related Origin Requests).
+   * Empty = the current hostname (fine for localhost).
+   */
+  passkeyRpId: process.env.NEXT_PUBLIC_PASSKEY_RP_ID ?? "",
+
   /** also offer a browser-stored key, for testing on authenticators without passkey PRF support */
   devKeyLogin: process.env.NEXT_PUBLIC_DEV_KEY_LOGIN === "true",
 };

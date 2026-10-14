@@ -46,6 +46,9 @@ async function fidForSender(addr: Address): Promise<number | null> {
   if (key) return key.fid;
   const custody = get<{ fid: number }>("SELECT fid FROM users WHERE custody = ?", a);
   if (custody) return custody.fid;
+  // a recovery address may send exactly what it's for: recovering the account (checked onchain too)
+  const recovery = get<{ fid: number }>("SELECT fid FROM users WHERE recovery = ? AND custody != recovery", a);
+  if (recovery) return recovery.fid;
   // the indexer may be a block behind a just-registered key: ask the chain
   const [signerFid, idOf] = await Promise.all([
     publicClient.readContract({ address: deployment.appKeys, abi: appKeysAbi, functionName: "signerFid", args: [addr] }),

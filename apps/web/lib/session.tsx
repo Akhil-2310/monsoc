@@ -49,6 +49,8 @@ interface Session {
   logout(): void;
   /** Owner-only: re-derives the custody key (passkey prompt) and changes the onchain handle. */
   changeHandle(handle: string): Promise<void>;
+  addBackupPasskey(): Promise<void>;
+  recoverWithBackup(): Promise<string | null>;
   send<T extends MessageType>(type: T, body: BodyFor<T>): Promise<SignedMessage<T>>;
   call(to: Address, abi: Abi | readonly unknown[], functionName: string, args: readonly unknown[]): Promise<Hex>;
   setFollow(target: number, on: boolean): Promise<void>;
@@ -60,6 +62,21 @@ interface Session {
 }
 
 const Ctx = createContext<Session | null>(null);
+
+/** Sign a forward request with `signer` (an app key or the custody itself) and have the relay submit it. */
+async function forwardSigned(
+  signer: Pick<LocalAccount, "address" | "signTypedData">,
+  to: Address,
+  abi: Abi | readonly unknown[],
+  functionName: string,
+  args: readonly unknown[],
+) {
+  const data = encodeFunctionData({ abi: abi as Abi, functionName, args } as never);
+  const [nonce, est] = await Promise.all([relay.forwarderNonce(signer.address), publicClient.estimateGas({ account: signer.address, to, data })]);
+  const req = await signForwardRequest(signer, { chainId: cfg.chainId, forwarder: deployment.forwarder, to, data, nonce, gas: (est * 12n) / 10n + 30_000n });
+  const r = await relay.forward(req);
+  if (r.status !== "success") throw new Error(`${functionName} reverted`);
+}
 
 /** A brand-new account reaches the relay's index ~1-2s after its tx, so retry briefly instead of showing no profile. */
 async function userWhenIndexed(fid: number, tries = 15): Promise<Profile | null> {
@@ -294,6 +311,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [fid, call],
   );
 
+  /** Which key owns this account: the passkey (Mera), unless this session used the browser key. */
+  const custodyProvider = useCallback((): CustodyProvider => {
+    const stored = localStorage.getItem(K.provider);
+    const browserKey = localStorage.getItem("monsoc.custody") as Hex | null;
+    const browserOwns = !!browserKey && !!custody && privateKeyToAccount(browserKey).address.toLowerCase() === custody.toLowerCase();
+    return stored === deviceProvider.id || (!stored && browserOwns) ? deviceProvider : meraProvider;
+  }, [custody]);
+
+  /** Owner-only call: re-derive the custody key (passkey prompt), sign it, and let the relay submit it. */
+  const asCustody = useCallback(
+    async (functionName: string, args: readonly unknown[]) => {
+      if (!custody) throw new Error("sign in first");
+      const conn = await custodyProvider().connect();
+      try {
+        if (conn.custody.address.toLowerCase() !== custody.toLowerCase())
+          throw new Error("That passkey belongs to a different account. Pick the passkey you signed up with.");
+        await forwardSigned(conn.custody, deployment.identity, identityAbi, functionName, args);
+      } finally {
+        conn.end();
+      }
+    },
+    [custody, custodyProvider],
+  );
+
+  const waitForProfile = useCallback(async (f: number, done: (p: Profile) => boolean) => {
+    for (let i = 0; i < 20; i++) {
+      const p = await relay.user(f).catch(() => null);
+      if (p && done(p)) return setProfile(p);
+      await new Promise((r) => setTimeout(r, 750));
+    }
+  }, []);
+
   const changeHandle = useCallback(
     async (handle: string) => {
       if (!fid || !custody) throw new Error("sign in first");
@@ -302,46 +351,43 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!ok) throw new Error("Handle must be 1-16 characters: a-z, 0-9, _");
       const taken = await publicClient.readContract({ address: deployment.identity, abi: identityAbi, functionName: "fidByHandle", args: [next] });
       if (taken !== 0n) throw new Error(taken === BigInt(fid) ? "That's already your handle" : `@${next} is taken`);
-
-      // Which key owns this account: the passkey (Mera) unless this session used the browser key.
-      const stored = localStorage.getItem(K.provider);
-      const browserKey = localStorage.getItem("monsoc.custody") as Hex | null;
-      const browserOwns = !!browserKey && privateKeyToAccount(browserKey).address.toLowerCase() === custody.toLowerCase();
-      const provider = stored === deviceProvider.id || (!stored && browserOwns) ? deviceProvider : meraProvider;
-      const conn = await provider.connect();
-      try {
-        if (conn.custody.address.toLowerCase() !== custody.toLowerCase())
-          throw new Error("That passkey belongs to a different account. Pick the passkey you signed up with.");
-        const data = encodeFunctionData({ abi: identityAbi, functionName: "setHandle", args: [next] });
-        const [nonce, est] = await Promise.all([
-          relay.forwarderNonce(conn.custody.address),
-          publicClient.estimateGas({ account: conn.custody.address, to: deployment.identity, data }),
-        ]);
-        const req = await signForwardRequest(conn.custody, {
-          chainId: cfg.chainId,
-          forwarder: deployment.forwarder,
-          to: deployment.identity,
-          data,
-          nonce,
-          gas: (est * 12n) / 10n + 30_000n,
-        });
-        const r = await relay.forward(req);
-        if (r.status !== "success") throw new Error("handle change reverted");
-      } finally {
-        conn.end();
-      }
-      // wait for the indexer so the new handle resolves everywhere
-      for (let i = 0; i < 20; i++) {
-        const p = await relay.user(fid).catch(() => null);
-        if (p?.handle === next) {
-          setProfile(p);
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 750));
-      }
+      await asCustody("setHandle", [next]);
+      await waitForProfile(fid, (p) => p.handle === next);
     },
-    [fid, custody],
+    [fid, custody, asCustody, waitForProfile],
   );
+
+  /**
+   * Create a second passkey (ideally in another password manager or on another device) and set its address
+   * as this account's recovery address. Two prompts: the new backup passkey, then your current one to approve.
+   */
+  const addBackupPasskey = useCallback(async () => {
+    if (!fid || !custody) throw new Error("sign in first");
+    const backup = await meraProvider.create(`${profile?.handle ?? fid} (backup)`, { pin: false });
+    const backupAddress = backup.custody.address;
+    backup.end();
+    if (backupAddress.toLowerCase() === custody.toLowerCase()) throw new Error("That's your main passkey; pick a different one for the backup");
+    await asCustody("setRecovery", [backupAddress]);
+    await waitForProfile(fid, (p) => p.recovery?.toLowerCase() === backupAddress.toLowerCase());
+  }, [fid, custody, profile?.handle, asCustody, waitForProfile]);
+
+  /** Lost your main passkey? Use the backup: it becomes the account's new owner, and you're signed in. */
+  const recoverWithBackup = useCallback(async () => {
+    const conn = await meraProvider.connect({ any: true });
+    try {
+      const addr = conn.custody.address;
+      const accounts = await relay.recoverableBy(addr);
+      if (accounts.length === 0) throw new Error("This passkey isn't a backup for any account.");
+      const f = accounts[0]!.fid;
+      await forwardSigned(conn.custody, deployment.identity, identityAbi, "recover", [BigInt(f), addr]);
+      // wait until the relay sees the new owner, then sign in with it
+      for (let i = 0; i < 20 && !(await relay.userByCustody(addr).catch(() => null)); i++) await new Promise((r) => setTimeout(r, 750));
+      await adopt(f, await chooseKey(conn.custody, f, conn.appKey), addr, meraProvider.id);
+      return accounts[0]!.handle;
+    } finally {
+      conn.end();
+    }
+  }, [adopt, chooseKey]);
 
   const setRelation = useCallback(
     async (kind: "mute" | "block", target: number, on: boolean) => {
@@ -368,8 +414,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [fid, loadUser]);
 
   const value = useMemo<Session>(
-    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, muted, blocked, setRelation, refresh }),
-    [ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, send, call, setFollow, muted, blocked, setRelation, refresh],
+    () => ({ ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, addBackupPasskey, recoverWithBackup, send, call, setFollow, muted, blocked, setRelation, refresh }),
+    [ready, fid, profile, custody, appKey, following, signup, login, logout, changeHandle, addBackupPasskey, recoverWithBackup, send, call, setFollow, muted, blocked, setRelation, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

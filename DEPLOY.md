@@ -2,7 +2,7 @@
 
 Two services: the **relay** on Railway (long-running Node + SQLite on a volume) and the **web app** on Vercel. Contracts are already on Monad testnet (`contracts/deployments/10143.json`) and media is on ImageKit.
 
-> **Pick the final domain before anyone signs up.** Passkeys are bound to the web app's domain: accounts created on `localhost` or a `*.vercel.app` preview URL won't work on the final domain.
+> **Passkeys are bound to one domain.** Set `NEXT_PUBLIC_PASSKEY_RP_ID` to the production domain (e.g. `monsoc.vercel.app`) before anyone signs up, and never change it. Accounts created on `localhost` or per-deploy preview URLs won't carry over.
 
 ## 1. Relay on Railway
 
@@ -42,6 +42,7 @@ Two services: the **relay** on Railway (long-running Node + SQLite on a volume) 
    | `NEXT_PUBLIC_RELAY_URL` | `https://<relay-domain>` |
    | `NEXT_PUBLIC_CHAIN_ID` | `10143` |
    | `NEXT_PUBLIC_RPC_URL` | `https://testnet-rpc.monad.xyz` |
+   | `NEXT_PUBLIC_PASSKEY_RP_ID` | your production domain without `https://`, e.g. `monsoc.vercel.app` |
 
 4. **Deploy**, then **Settings → Domains →** add your domain and set the DNS records Vercel shows.
 
@@ -54,3 +55,12 @@ Two services: the **relay** on Railway (long-running Node + SQLite on a volume) 
 2. Open the site on the final domain and test: passkey sign-up (Safari / Chrome with iCloud Keychain or 1Password), post with a photo, follow, open a market, back it, community chat.
 3. Keep an eye on the relay wallet balance (it pays everyone's gas): `0x2d90F06B039F3Fd1653EC69173FefBc3C3dd7ecC`.
 4. Optional: snapshot the Railway volume regularly (it holds posts, likes, chat).
+
+## Moving to a new domain later
+
+Accounts and data aren't tied to the domain (they're onchain and on the relay), but passkeys are. To move from `monsoc.vercel.app` to `monsoc.xyz` without breaking existing logins:
+
+1. Keep `NEXT_PUBLIC_PASSKEY_RP_ID=monsoc.vercel.app` on the new deployment too.
+2. On the **original** deployment (`monsoc.vercel.app`, keep it running) set `PASSKEY_RELATED_ORIGINS=https://monsoc.xyz` and redeploy. It then serves `/.well-known/webauthn` listing the new origin, and Chrome/Safari let the new site use the old passkeys (WebAuthn Related Origin Requests).
+
+Users can also protect themselves with a **backup passkey** (Wallet & keys → Account recovery), which can take over the account if the main passkey is lost.
