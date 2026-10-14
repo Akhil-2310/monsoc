@@ -25,6 +25,10 @@ export const config = {
   maxClockSkewMs: 10 * 60_000,
   ipfsGateway: env.IPFS_GATEWAY ?? "https://ipfs.io/ipfs/",
   faucetEnabled: (env.FAUCET ?? "true") === "true",
+  /** hours until account age counts fully toward reputation (a week in production; shorten on testnets) */
+  reputationWarmupMs: Number(env.REPUTATION_WARMUP_HOURS ?? 168) * 3_600_000,
+  /** how often scout scores are re-published onchain (at most) */
+  scoutRootIntervalMs: Number(env.SCOUT_ROOT_INTERVAL_MS ?? 10 * 60_000),
   /** ImageKit media uploads; leave unset to disable uploads (link pasting still works) */
   imagekit: {
     publicKey: env.IMAGEKIT_PUBLIC_KEY ?? "",

@@ -16,10 +16,14 @@ export interface AccountStats {
 
 export const REPUTATION_VERIFIED = 0.5;
 
-/** 0..1. Account age, real activity and follows from trusted accounts raise it. */
-export function reputation(a: AccountStats, now = Date.now()): number {
-  const ageDays = (now - a.createdAt) / 86_400_000;
-  const age = Math.min(1, ageDays / 7);
+export const DEFAULT_REPUTATION_WARMUP_MS = 7 * 86_400_000;
+
+/**
+ * 0..1. Account age, real activity and follows from trusted accounts raise it. Age reaches full weight
+ * after `warmupMs` (a week by default; test networks can shorten it).
+ */
+export function reputation(a: AccountStats, now = Date.now(), warmupMs = DEFAULT_REPUTATION_WARMUP_MS): number {
+  const age = Math.min(1, Math.max(0, now - a.createdAt) / warmupMs);
   const activity = Math.min(1, a.posts / 5);
   const trust = Math.min(1, (a.reputableFollowers ?? a.followers / 2) / 5);
   const human = a.verifiedHuman ? 0.3 : 0;

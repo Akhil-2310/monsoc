@@ -13,3 +13,4 @@ contracts/lib/
 .DS_Store
 *.tsbuildinfo
 contracts/broadcast/**/dry-run/
+.demo-keys.json

@@ -21,7 +21,7 @@ import { proofFor, batchHashes } from "./anchor";
 import { forward, signup, faucet, addKey } from "./sponsor";
 import { mediaAuth, mediaEnabled } from "./media";
 import { listMarkets, marketDetail, creatorMarketInfo } from "./markets";
-import { trialResults, scoutScoresFor, currentEpoch } from "./jobs";
+import { trialResults, scoutScoresFor, currentEpoch, picksFor } from "./jobs";
 
 export const app = new Hono();
 app.use("*", cors());
@@ -381,6 +381,17 @@ app.get("/v1/chat/:community/:room", (c) => {
 app.get("/v1/trials/:hash", (c) => {
   const r = trialResults(c.req.param("hash") as Hex);
   return r ? c.json(r) : c.json({ error: "not found" }, 404);
+});
+
+app.get("/v1/users/:fid/picks", (c) => {
+  const r = picksFor(fidParam(c.req.param("fid")));
+  return c.json({
+    ...r,
+    picks: r.picks.slice(0, 50).map((p) => {
+      const pr = profile(p.creator);
+      return { ...p, handle: pr?.handle ?? null, displayName: pr?.displayName ?? null, avatar: pr?.avatar ?? null };
+    }),
+  });
 });
 
 app.get("/v1/scouts", (c) => {

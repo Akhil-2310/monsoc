@@ -85,7 +85,15 @@ pnpm web:testnet
 
 Keys live in gitignored `contracts/.env.testnet` and `apps/relay/.env.testnet` (templates: `.env.example`).
 
-## Deploying to Monad testnet yourself
+## Live scouting demo (testnet)
+
+Scout scores need reputable followers, and reputation needs account age. On testnet, `REPUTATION_WARMUP_HOURS=1` (in `apps/relay/.env.testnet`) shortens the warm-up from a week to an hour; scoring rules are unchanged.
+
+1. **An hour before:** run `pnpm demo:scouts setup`. It creates @newcreator (profile, posts, a trial post in #ai, markets enabled) and four fans who each post, so they earn reputation. Keys go to `apps/relay/.demo-keys.json` (gitignored).
+2. **Before going live:** as yourself, post a few times (your reputation needs 50% to score) and check `pnpm demo:scouts status` shows the fans as verified.
+3. **Live:** find @newcreator's trial post in the AI feed and tap **Back** (optionally back YES on a milestone market too), then run `pnpm demo:scouts grow`. The fans follow one by one; **Scouts → Your picks** updates live, the leaderboard shows your score and tier within ~15s, and the score root is re-posted onchain within a minute.
+
+
 
 ```bash
 export MONAD_RPC_URL=https://testnet-rpc.monad.xyz

@@ -32,7 +32,10 @@ export function updateReputation() {
     FROM users u`);
   const seeded = new Set<number>(JSON.parse(kvGet("reputation.trusted") ?? "[]"));
   // pass 1: proxy trust from raw followers; pass 2: count reputable followers only
-  const pass1 = new Map(users.map((u) => [u.fid, seeded.has(u.fid) ? 1 : computeReputation({ fid: u.fid, createdAt: u.created_at, posts: u.posts, followers: u.followers })]));
+  const warm = config.reputationWarmupMs;
+  const pass1 = new Map(
+    users.map((u) => [u.fid, seeded.has(u.fid) ? 1 : computeReputation({ fid: u.fid, createdAt: u.created_at, posts: u.posts, followers: u.followers }, Date.now(), warm)]),
+  );
   const reputableFollowers = new Map<number, number>();
   for (const f of all<{ fid: number; target: number }>("SELECT fid, target FROM follows")) {
     if ((pass1.get(f.fid) ?? 0) >= REPUTATION_VERIFIED) reputableFollowers.set(f.target, (reputableFollowers.get(f.target) ?? 0) + 1);
@@ -42,7 +45,7 @@ export function updateReputation() {
       const rf = reputableFollowers.get(u.fid) ?? 0;
       const rep = seeded.has(u.fid)
         ? 1
-        : computeReputation({ fid: u.fid, createdAt: u.created_at, posts: u.posts, followers: u.followers, reputableFollowers: rf });
+        : computeReputation({ fid: u.fid, createdAt: u.created_at, posts: u.posts, followers: u.followers, reputableFollowers: rf }, Date.now(), warm);
       run(
         "INSERT INTO reputation(fid, rep, verified_followers) VALUES(?,?,?) ON CONFLICT(fid) DO UPDATE SET rep = excluded.rep, verified_followers = excluded.verified_followers",
         u.fid,
@@ -69,7 +72,8 @@ export function collectBackings(topic?: string): Backing[] {
     GROUP BY scout, creator`);
 }
 
-export function scoutScoresFor(topic?: string) {
+/** Reputation per fid, and follow times per creator counting only verified (reputable) followers. */
+function verifiedIndex() {
   const reps = new Map(all<{ fid: number; rep: number }>("SELECT fid, rep FROM reputation").map((r) => [r.fid, r.rep]));
   const verifiedFollowTimes = new Map<number, number[]>();
   for (const f of all<{ fid: number; target: number; ts: number }>("SELECT fid, target, ts FROM follows ORDER BY ts")) {
@@ -78,6 +82,41 @@ export function scoutScoresFor(topic?: string) {
     list.push(f.ts);
     verifiedFollowTimes.set(f.target, list);
   }
+  return { reps, verifiedFollowTimes };
+}
+
+/**
+ * A scout's picks, computed live with the same rules as the official score: for each creator they backed,
+ * verified followers when they backed vs now, and the points that growth is worth.
+ */
+export function picksFor(fid: number) {
+  const { reps, verifiedFollowTimes } = verifiedIndex();
+  const verifiedAt = (c: number, at: number) => (verifiedFollowTimes.get(c) ?? []).filter((t) => t < at).length;
+  const raw = (c: number, at = Infinity) => get<{ n: number }>("SELECT COUNT(*) AS n FROM follows WHERE target = ? AND ts < ?", c, at === Infinity ? Number.MAX_SAFE_INTEGER : at)!.n;
+  const picks = collectBackings()
+    .filter((b) => b.scout === fid)
+    .map((b) => {
+      const from = verifiedAt(b.creator, b.at);
+      const now = (verifiedFollowTimes.get(b.creator) ?? []).length;
+      const growth = Math.log2((now + 1) / (from + 1));
+      return {
+        creator: b.creator,
+        at: b.at,
+        verifiedFrom: from,
+        verifiedNow: now,
+        followersFrom: raw(b.creator, b.at),
+        followersNow: raw(b.creator),
+        points: Math.max(0, Math.round(growth * 1000)),
+        hit: growth >= 1,
+      };
+    })
+    .sort((a, b) => b.points - a.points || b.at - a.at);
+  const rep = reps.get(fid) ?? 0;
+  return { reputation: rep, canScore: rep >= REPUTATION_VERIFIED, picks };
+}
+
+export function scoutScoresFor(topic?: string) {
+  const { reps, verifiedFollowTimes } = verifiedIndex();
   return computeScoutScores({
     backings: collectBackings(topic),
     reputationOf: (fid) => reps.get(fid) ?? 0,
@@ -106,7 +145,7 @@ export async function updateScouts() {
   if (nonzero.length === 0) return;
   const digest = keccak256(toBytes(JSON.stringify(nonzero.map((s) => [s.fid, s.score]))));
   const last = Number(kvGet("scouts.postedAt") ?? 0);
-  if (digest === kvGet("scouts.digest") || Date.now() - last < 10 * 60_000) return;
+  if (digest === kvGet("scouts.digest") || Date.now() - last < config.scoutRootIntervalMs) return;
   const tree = scoutTree(nonzero.map((s) => ({ fid: BigInt(s.fid), score: BigInt(s.score) })));
   const epoch = BigInt(Math.floor(Date.now() / 3_600_000));
   await send({

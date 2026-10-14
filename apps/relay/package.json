@@ -10,7 +10,8 @@
     "bootstrap": "tsx --env-file-if-exists=.env src/bootstrap.ts",
     "seed:demo": "tsx --env-file-if-exists=.env src/demo-seed.ts",
     "start:testnet": "tsx --env-file=.env.testnet src/index.ts",
-    "bootstrap:testnet": "tsx --env-file=.env.testnet src/bootstrap.ts"
+    "bootstrap:testnet": "tsx --env-file=.env.testnet src/bootstrap.ts",
+    "demo:scouts": "tsx --env-file=.env.testnet src/demo-scouts.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

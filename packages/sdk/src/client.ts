@@ -251,6 +251,25 @@ export class RelayClient {
       (Profile & { score: number; hits: number; backed: number; topFinds: { creator: number; handle: string | null; from: number; now: number }[] })[]
     >(`/v1/scouts${topic ? `?topic=${topic}` : ""}`);
   }
+  picks(fid: number) {
+    return this.req<{
+      reputation: number;
+      canScore: boolean;
+      picks: {
+        creator: number;
+        handle: string | null;
+        displayName: string | null;
+        avatar: string | null;
+        at: number;
+        verifiedFrom: number;
+        verifiedNow: number;
+        followersFrom: number;
+        followersNow: number;
+        points: number;
+        hit: boolean;
+      }[];
+    }>(`/v1/users/${fid}/picks`);
+  }
   backs(fid: number) {
     return this.req<{ creator: number; handle: string | null; at: number; from: number; now: number }[]>(`/v1/users/${fid}/backs`);
   }
