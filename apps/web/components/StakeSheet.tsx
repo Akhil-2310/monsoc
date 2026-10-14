@@ -93,7 +93,7 @@ export function StakeSheet({ marketId, side, onClose, onDone }: { marketId: numb
             </button>
           ))}
         </div>
-        <label className="mt-2 flex items-center rounded-xl border border-line bg-panel-2 px-3">
+        <label className="field mt-2">
           <span className="text-muted">$</span>
           <input className="flex-1 bg-transparent px-1 py-2 text-sm outline-none" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <span className="text-xs text-muted">tUSD</span>

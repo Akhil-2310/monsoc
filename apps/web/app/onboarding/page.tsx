@@ -120,7 +120,7 @@ export default function Onboarding() {
           <p className="mt-1 text-sm text-muted">
             One signature creates your onchain identity and authorizes this app. No seed phrase, no gas, no wallet popups after this.
           </p>
-          <div className="mt-4 flex items-center rounded-xl border border-line bg-panel-2 px-3">
+          <div className="field mt-4">
             <span className="text-muted">@</span>
             <input
               className="flex-1 bg-transparent px-1 py-2 text-sm outline-none"
@@ -135,9 +135,11 @@ export default function Onboarding() {
               <button className={`${n ? "btn-ghost" : "btn-primary"} mt-3 w-full`} disabled={busy || !handle} onClick={() => create(p)}>
                 {busy ? "Waiting for passkey…" : n ? `Create with ${p.label}` : "Create account with passkey"}
               </button>
-              <button className="btn-ghost mt-2 w-full" disabled={busy} onClick={() => signIn(p)}>
-                {n ? `Sign in with ${p.label}` : "Sign in with passkey"}
-              </button>
+              {n > 0 && (
+                <button className="btn-ghost mt-2 w-full" disabled={busy} onClick={() => signIn(p)}>
+                  Sign in with {p.label}
+                </button>
+              )}
             </div>
           ))}
           <p className="mt-3 text-center text-sm text-muted">

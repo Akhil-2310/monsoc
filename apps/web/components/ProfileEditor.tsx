@@ -139,7 +139,7 @@ function HandleChanger({ current, onChanged }: { current: string; onChanged: (h:
         <span>onchain · 1-16 of a-z, 0-9, _</span>
       </span>
       <div className="flex gap-2">
-        <div className="flex flex-1 items-center rounded-xl border border-line bg-panel-2 px-3">
+        <div className="field flex-1">
           <span className="text-muted">@</span>
           <input
             className="flex-1 bg-transparent px-1 py-2 text-sm outline-none"
