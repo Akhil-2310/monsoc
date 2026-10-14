@@ -29,6 +29,19 @@ export const relay = new RelayClient(cfg.relayUrl);
 export const deployment: Deployment = getDeployment(cfg.chainId);
 export const publicClient = createPublicClient({ chain: getChain(cfg.chainId), transport: http(cfg.rpcUrl) });
 
+/** Estimate gas, retrying a revert a few times: right after a previous tx (e.g. an approve) the
+ *  load-balanced RPC can briefly answer from a node that hasn't applied it yet. */
+async function estimateGas(account: Address, to: Address, data: Hex): Promise<bigint> {
+  for (let i = 0; ; i++) {
+    try {
+      return await publicClient.estimateGas({ account, to, data });
+    } catch (e) {
+      if (i >= 4) throw e;
+      await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+}
+
 const K = {
   appKey: "monsoc.appKey",
   fid: "monsoc.fid",
@@ -72,7 +85,7 @@ async function forwardSigned(
   args: readonly unknown[],
 ) {
   const data = encodeFunctionData({ abi: abi as Abi, functionName, args } as never);
-  const [nonce, est] = await Promise.all([relay.forwarderNonce(signer.address), publicClient.estimateGas({ account: signer.address, to, data })]);
+  const [nonce, est] = await Promise.all([relay.forwarderNonce(signer.address), estimateGas(signer.address, to, data)]);
   const req = await signForwardRequest(signer, { chainId: cfg.chainId, forwarder: deployment.forwarder, to, data, nonce, gas: (est * 12n) / 10n + 30_000n });
   const r = await relay.forward(req);
   if (r.status !== "success") throw new Error(`${functionName} reverted`);
@@ -276,7 +289,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // Our contracts read _msgSender() == app key either way, so estimating the call directly is exact.
         const [nonce, est] = await Promise.all([
           relay.forwarderNonce(appKey.address),
-          publicClient.estimateGas({ account: appKey.address, to, data }),
+          estimateGas(appKey.address, to, data),
         ]);
         const gas = (est * 12n) / 10n + 30_000n;
         const req = await signForwardRequest(appKey, { chainId: cfg.chainId, forwarder: deployment.forwarder, to, data, nonce, gas });

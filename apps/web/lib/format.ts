@@ -17,7 +17,8 @@ export const tokenAmount = (raw: string | bigint, decimals: number) => {
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 export function errMsg(e: unknown): string {
-  const m = e instanceof Error ? e.message : String(e);
+  // viem errors carry a one-line shortMessage; the full message dumps call arguments
+  const m = e instanceof Error ? ((e as { shortMessage?: string }).shortMessage ?? e.message) : String(e);
   return m.length > 160 ? m.slice(0, 160) + "…" : m;
 }
 

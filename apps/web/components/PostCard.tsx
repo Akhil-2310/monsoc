@@ -4,7 +4,7 @@ import type { Hex } from "viem";
 import { useEffect, useRef, useState } from "react";
 import type { PostView, RankReason } from "@monsoc/sdk";
 import { paymentsAbi, tusdAbi, mediaUrl } from "@monsoc/sdk";
-import { useSession, deployment } from "@/lib/session";
+import { useSession, deployment, publicClient, relay } from "@/lib/session";
 import { timeAgo, errMsg } from "@/lib/format";
 import { Avatar } from "./Avatar";
 import {
@@ -99,11 +99,12 @@ export function PostCard({
   compact?: boolean;
 }) {
   const ref = useViewTracker(post, feedId);
-  const { fid, send, call, following, setFollow, muted, blocked, setRelation } = useSession();
+  const { fid, appKey, send, call, following, setFollow, muted, blocked, setRelation } = useSession();
   // hash of the viewer's own like/repost message, so it can be undone with a signed `delete`
   const [likeHash, setLikeHash] = useState<Hex | null>(post.viewer?.like ?? null);
   const [repostHash, setRepostHash] = useState<Hex | null>(post.viewer?.repost ?? null);
   const [backed, setBacked] = useState(post.viewer?.backed ?? false);
+  const [tipState, setTipState] = useState<"idle" | "sending" | "done">("idle");
   const [removed, setRemoved] = useState(false);
   const [menu, setMenu] = useState(false);
   const creatorMarket = useCreatorMarket(post.fid);
@@ -165,15 +166,22 @@ export function PostCard({
       () => (setBacked(true), setStats((s) => ({ ...s, backs: s.backs + 1 }))),
       () => (setBacked(false), setStats((s) => ({ ...s, backs: s.backs - 1 }))),
     );
+  const TIP = 1_000_000n; // $1 in 6-decimal tUSD
   const tip = () =>
     act(
       async () => {
-        await call(deployment.tusd, tusdAbi, "approve", [deployment.payments, 2n ** 255n]);
-        await call(deployment.payments, paymentsAbi, "tip", [BigInt(post.fid), deployment.tusd, 1_000_000n]);
+        const me = appKey!.address;
+        const [bal, allowance] = await Promise.all([
+          publicClient.readContract({ address: deployment.tusd, abi: tusdAbi, functionName: "balanceOf", args: [me] }),
+          publicClient.readContract({ address: deployment.tusd, abi: tusdAbi, functionName: "allowance", args: [me, deployment.payments] }),
+        ]);
+        if (bal < TIP) await relay.faucet(me); // testnet only: 100 tUSD
+        if (allowance < TIP) await call(deployment.tusd, tusdAbi, "approve", [deployment.payments, 2n ** 255n]);
+        await call(deployment.payments, paymentsAbi, "tip", [BigInt(post.fid), deployment.tusd, TIP]);
       },
-      () => undefined,
-      () => undefined,
-    );
+      () => setTipState("sending"),
+      () => setTipState("idle"),
+    ).then(() => setTipState((t) => (t === "sending" ? "done" : t)));
 
   if (removed) return null;
   if (!isOwn && (muted.has(post.fid) || blocked.has(post.fid)))
@@ -353,8 +361,13 @@ export function PostCard({
               </button>
             )}
             {cfg.plugins.tipping && !isOwn && fid && (
-              <button onClick={tip} className={`${action} hover:bg-warn/12 hover:text-warn`} title="Tip $1 in tUSD">
-                <Coins size={16} /> Tip
+              <button
+                onClick={tip}
+                disabled={tipState === "sending"}
+                className={`${action} hover:bg-warn/12 hover:text-warn ${tipState === "done" ? "text-warn" : ""}`}
+                title="Tip $1 in tUSD"
+              >
+                <Coins size={16} /> {tipState === "sending" ? "Tipping…" : tipState === "done" ? "Tipped $1" : "Tip"}
               </button>
             )}
             <span className="ml-auto flex items-center gap-2 text-[11px]">
