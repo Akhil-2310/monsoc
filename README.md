@@ -2,6 +2,10 @@
 
 People, not platforms, own their identity, their audience and their feed. One identity, one shared graph, a thousand competing clients and algorithms.
 
+- **Live app:** [monsoc.vercel.app](https://monsoc.vercel.app/) (Monad testnet)
+- **Video demo:** [youtu.be/7leHc36fePE](https://youtu.be/7leHc36fePE)
+- **Pitch:** [youtu.be/64625gqwAcU](https://youtu.be/64625gqwAcU)
+
 ```
 apps/web        Next.js default client (fork it: edit monsoc.config.ts, deploy)
 apps/relay      relay + indexer + gas sponsor + jobs (one Node process, SQLite)
