@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Monsoc">
+  <!-- speech bubble body (social) -->
+  <path d="M64 14c28.2 0 51 19.9 51 44.5S92.2 103 64 103c-5.6 0-11-.8-16-2.3L24 114l5-22.6C19.6 83.3 13 71.6 13 58.5 13 33.9 35.8 14 64 14z" fill="#7c3aed"/>
+  <!-- eyes -->
+  <ellipse cx="47" cy="55" rx="8" ry="10" fill="#ffffff"/>
+  <ellipse cx="81" cy="55" rx="8" ry="10" fill="#ffffff"/>
+  <circle cx="48.5" cy="57.5" r="4.6" fill="#1b1724"/>
+  <circle cx="82.5" cy="57.5" r="4.6" fill="#1b1724"/>
+  <circle cx="50.3" cy="55.2" r="1.6" fill="#ffffff"/>
+  <circle cx="84.3" cy="55.2" r="1.6" fill="#ffffff"/>
+  <!-- cheeks -->
+  <ellipse cx="36" cy="72" rx="6.5" ry="4" fill="#f9a8d4"/>
+  <ellipse cx="92" cy="72" rx="6.5" ry="4" fill="#f9a8d4"/>
+  <!-- smile -->
+  <path d="M55 73q9 9 18 0" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <!-- sparkle (discovery) -->
+  <path d="M108 6l3.6 9.4L121 19l-9.4 3.6L108 32l-3.6-9.4L95 19l9.4-3.6z" fill="#f2643f"/>
+</svg>

@@ -41,14 +41,8 @@ const NAV: NavItem[] = [
 ];
 
 export function Logo({ size = 30 }: { size?: number }) {
-  return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-[30%] bg-accent font-display font-extrabold text-on-accent shadow-soft"
-      style={{ width: size, height: size, fontSize: size * 0.55 }}
-    >
-      {cfg.name.slice(0, 1).toLowerCase()}
-    </span>
-  );
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/logo.svg" alt={cfg.name} width={size} height={size} className="shrink-0" style={{ width: size, height: size }} />;
 }
 
 export function Shell({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
