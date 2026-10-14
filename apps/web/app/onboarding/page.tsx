@@ -1,7 +1,10 @@
 "use client";
 import { Logo } from "@/components/Shell";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Camera } from "lucide-react";
+import { cleanProfile } from "@monsoc/sdk";
+import { uploadMedia, uploadsEnabled } from "@/lib/media";
 import type { CommunityInfo, Profile } from "@monsoc/sdk";
 import { communitiesAbi, followsAbi } from "@monsoc/sdk";
 import { useSession, relay, deployment } from "@/lib/session";
@@ -18,7 +21,37 @@ type Suggestions = {
 
 export default function Onboarding() {
   const router = useRouter();
-  const { fid, custody, signup, login, call } = useSession();
+  const { fid, custody, appKey, signup, login, call, send, refresh } = useSession();
+  // optional profile picked on the sign-up card; saved right after the account exists (uploads need its key)
+  const [displayName, setDisplayName] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [canUpload, setCanUpload] = useState(false);
+  const [pendingProfile, setPendingProfile] = useState(false);
+  const [profileNote, setProfileNote] = useState<string | null>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    uploadsEnabled().then(setCanUpload);
+  }, []);
+  useEffect(() => () => void (photoUrl && URL.revokeObjectURL(photoUrl)), [photoUrl]);
+
+  useEffect(() => {
+    if (!pendingProfile || !fid || !appKey) return;
+    setPendingProfile(false);
+    (async () => {
+      setProfileNote("Setting up your profile…");
+      try {
+        const avatar = photo ? (await uploadMedia(photo, fid, appKey)).uri : undefined;
+        const body = cleanProfile({ displayName, avatar });
+        if (Object.keys(body).length) await send("profile", body);
+        await refresh();
+        setProfileNote(null);
+      } catch (e) {
+        setProfileNote(`Couldn't save your photo or name (${errMsg(e)}). You can add them later from your profile.`);
+      }
+    })();
+  }, [pendingProfile, fid, appKey, photo, displayName, send, refresh]);
   const [step, setStep] = useState<"account" | "seed">("account");
   const [handle, setHandle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,6 +92,7 @@ export default function Onboarding() {
       const taken = await relay.user(handle).then(() => true, () => false);
       if (taken) throw new Error(`@${handle} is taken`);
       await signup(provider, handle);
+      if (photo || displayName.trim()) setPendingProfile(true);
       setStep("seed");
     } catch (e) {
       setErr(explain(e));
@@ -120,7 +154,50 @@ export default function Onboarding() {
           <p className="mt-1 text-sm text-muted">
             One signature creates your onchain identity and authorizes this app. No seed phrase, no gas, no wallet popups after this.
           </p>
-          <div className="field mt-4">
+          <div className="mt-5 flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => canUpload && photoInput.current?.click()}
+              className={`group relative flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-line bg-panel-2 text-muted transition ${canUpload ? "hover:border-accent hover:text-accent" : "cursor-default"}`}
+              title={canUpload ? "Add a profile photo" : "Photo uploads aren't enabled on this relay"}
+            >
+              {photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Camera size={24} />
+              )}
+              {photoUrl && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
+                  <Camera size={20} />
+                </span>
+              )}
+            </button>
+            <input
+              ref={photoInput}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (!f.type.startsWith("image/")) return setErr("Pick an image file");
+                setPhoto(f);
+                setPhotoUrl(URL.createObjectURL(f));
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <input
+                className="input"
+                placeholder="Your name (optional)"
+                maxLength={50}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              <p className="mt-1 text-[11px] text-muted">{canUpload ? "Tap the circle to add a photo. Both are optional." : "You can add a photo later."}</p>
+            </div>
+          </div>
+          <div className="field mt-3">
             <span className="text-muted">@</span>
             <input
               className="flex-1 bg-transparent px-1 py-2 text-sm outline-none"
@@ -171,6 +248,7 @@ export default function Onboarding() {
 
       {step === "seed" && (
         <div className="space-y-4">
+          {profileNote && <p className="rounded-xl bg-panel-2 px-4 py-2 text-sm text-muted">{profileNote}</p>}
           <div className="card p-5">
             <h2 className="text-lg font-semibold">Your communities</h2>
             <p className="text-sm text-muted">Based on the tokens and apps in your wallet, plus what's active right now.</p>

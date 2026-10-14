@@ -61,6 +61,16 @@ interface Session {
 
 const Ctx = createContext<Session | null>(null);
 
+/** A brand-new account reaches the relay's index ~1-2s after its tx, so retry briefly instead of showing no profile. */
+async function userWhenIndexed(fid: number, tries = 15): Promise<Profile | null> {
+  for (let i = 0; i < tries; i++) {
+    const p = await relay.user(fid).catch(() => null);
+    if (p) return p;
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  return null;
+}
+
 export function useSession() {
   const s = useContext(Ctx);
   if (!s) throw new Error("useSession outside SessionProvider");
@@ -81,7 +91,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const loadUser = useCallback(async (f: number) => {
     const [p, fol, rel] = await Promise.all([
-      relay.user(f).catch(() => null),
+      userWhenIndexed(f),
       relay.following(f).catch(() => []),
       relay.relations(f).catch(() => ({ muted: [], blocked: [] })),
     ]);
