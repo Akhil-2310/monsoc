@@ -1,28 +1,124 @@
-# Monsoc: an open social protocol on Monad
+# Monsoc
 
-People, not platforms, own their identity, their audience and their feed. One identity, one shared graph, a thousand competing clients and algorithms.
+An open social protocol on Monad where people, not platforms, own their identity, their audience and their feed. Sign up with a passkey, test posts on strangers first, and back creators early in markets settled by the onchain follow graph.
 
 - **Live app:** [monsoc.vercel.app](https://monsoc.vercel.app/) (Monad testnet)
 - **Video demo:** [youtu.be/7leHc36fePE](https://youtu.be/7leHc36fePE)
 - **Pitch:** [youtu.be/64625gqwAcU](https://youtu.be/64625gqwAcU)
+- **Contracts:** 13, all verified on [MonadVision](#deployed-contracts-monad-testnet)
+
+## The problem
+
+Social platforms lock up the three things that matter most to the people who create value on them.
+
+- **Your identity is locked.** Your account, handle and reputation belong to the platform and can't leave it.
+- **Your audience is trapped.** Followers you build on one app can't move to another, so every time a creator switches platforms, or a platform changes its rules, they start from zero.
+- **The feed is a black box.** One company decides who gets seen. New creators struggle to be discovered, there's no way to test a post with people who don't follow you yet, and the fans who spot a creator early, whose attention is what makes that creator grow, get nothing for it.
+
+Onchain social has tried to fix ownership, but it usually feels like crypto: seed phrases, wallet popups, gas on every like, and an empty feed on day one. People don't switch networks for ideology. They switch when the product feels better.
+
+## The solution
+
+Monsoc is a small, neutral protocol on Monad plus an open-source default client that anyone can fork into their own app.
+
+1. **Passkey identity, zero crypto friction.** Sign up with Touch ID or Face ID through [Mera](https://mera.category.xyz/). No seed phrase, no wallet popup, no gas: a relay sponsors every onchain action through an ERC-2771 forwarder, and the client signs in the background with a scoped, revocable app key.
+2. **An onchain social graph.** Accounts, handles and follows live in contracts on Monad. Every client reads the same graph, so a creator's audience moves with them, and other contracts can check "does A follow B" directly.
+3. **A feed marketplace.** A feed is a public JSON recipe that runs in the browser, or a hosted server where AI ranking can live. Feeds are registered and versioned onchain. Users switch in one tap between topic feeds (AI, Sports, Crypto…) and ranking styles ("Real conversations", "No engagement bait"), and communities choose their own ranking. Every feed must reserve 5–30% of positions for creators the viewer doesn't follow.
+4. **Trial posts.** Show a post only to people who don't follow you yet, A/B test two hooks, compare reach and follows gained, then release the winner to your followers.
+5. **Scouts.** Tap **Back** on creators you discover early. Your scout score grows as they do, counted only in reputable, verified followers, with caps so spraying backs doesn't pay. Score roots are posted onchain so anyone can recompute them.
+6. **Milestone markets.** "Will @nova hit 1,000 followers by Friday?" Creators opt in and earn 1% of the losing pool. Early stakes count up to 2x. The contract settles itself by reading the follow graph, with no oracle and no admin, and only accounts that existed when the market opened count, so new fake accounts can't swing it.
+7. **Communities and real money.** Open, token-gated, invite-only or paid communities with onchain roles and bans, live chat and their own ranking. Prices are in dollars, paid in a stablecoin or MON. Paid feeds share revenue with the creators they actually surfaced, attributed from views signed by each subscriber's own key.
+8. **Verifiable by default.** Posts, likes and profiles are free signed messages. The relay anchors a Merkle root of every batch on Monad, every post has a "Verify onchain" button, and media carries the SHA-256 of the original file.
+
+**Why it's useful.** Creators get an audience they own and a fair shot at discovery. Fans choose their own feeds and get a provable stake in spotting talent early. Communities set their own rules, enforced onchain. Developers can fork the client and launch a niche app with a real network on day one.
+
+## How it works
 
 ```
 apps/web        Next.js default client (fork it: edit monsoc.config.ts, deploy)
-apps/relay      relay + indexer + gas sponsor + jobs (one Node process, SQLite)
+apps/relay      relay + indexer + gas sponsor + market keeper + jobs (one Node process, SQLite)
 packages/sdk    TypeScript SDK: messages, feed engine, merkle, meta-tx, scouts, payouts
-contracts       Foundry: the 8 onchain pieces + Signup bundler
+contracts       Foundry: identity, app keys, signup, follows, feeds, payments, anchor,
+                communities, scouts, markets
 ```
 
-## Quick start (local chain)
+### Request flow
 
-Requires Node 22+, pnpm, Foundry.
+* **Sign up.** The custody key signs one EIP-712 `Signup`. The relay submits it and pays gas. The fid, handle and app key are created in one transaction.
+* **Follow, join, subscribe, stake, create a feed.** The app key signs an ERC-2771 `ForwardRequest`. The relay checks the target, the fid's daily budget and dry-runs the call, then submits through the forwarder. Contracts see the app key and check its scope for the fid.
+* **Post, like, reply, Back, view, chat.** Signed messages to the relay, which checks the signature, key, clock, sequence number, rate limits and membership. Every few minutes it Merkle-roots new messages (not chat) onto `Anchor`.
+* **Paid feeds.** Each subscriber's creator share is split across the creators *they* viewed, using views signed by their own app key, so a hosted feed can't misreport. One root is posted per epoch, and creators claim with a proof.
+
+### Mera as the account layer
+
+`apps/web/lib/custody.ts`: a Mera passkey's PRF output is mapped through BIP-39/BIP-32 into two keys. The **custody** key (`m/44'/60'/0'/0/0`) owns the identity, lives only inside a Mera signing session (via `toViemAccount`) and is never stored. The **app key** (`m/44'/60'/0'/0/1`) is scoped, revocable, cached by the client and re-derived on any device the passkey syncs to. A second Mera passkey can be set as the onchain recovery address. Custody is a plain EOA, so there's no smart-account deployment and no ERC-1271 caveats. The passkey domain is configurable (`NEXT_PUBLIC_PASSKEY_RP_ID`), and the client serves `/.well-known/webauthn` for Related Origin Requests, so the app can move domains without breaking logins. Browsers without PRF get a clearly labeled fallback key.
+
+### What's built
+
+| Area | Where |
+|---|---|
+| Identity: fid, custody, recovery, handles | `contracts/src/IdentityRegistry.sol` |
+| App keys: scoped, expiring, revocable, multi key-type | `contracts/src/AppKeyRegistry.sol` |
+| One-signature signup (ID + handle + app key) | `contracts/src/Signup.sol` |
+| Follow graph: timestamps, batching, daily rate limits | `contracts/src/FollowGraph.sol` |
+| Feed registry: versioned definitions, pricing, discovery range | `contracts/src/FeedRegistry.sol` |
+| Payments: USD pricing, MON via oracle or stablecoin, splits, Merkle payouts, tips, memberships | `contracts/src/Payments.sol` |
+| Anchor: Merkle roots of content, `verify()`, escape hatch | `contracts/src/Anchor.sol` |
+| Communities: open, token-gated, invite-only, paid; roles, bans | `contracts/src/CommunityRegistry.sol` |
+| Scout score roots | `contracts/src/ScoutRegistry.sol` |
+| Milestone markets, settled from the follow graph | `contracts/src/CreatorMarkets.sol`, keeper in `apps/relay/src/markets.ts` |
+| Sponsored gas | OZ `ERC2771Forwarder` + `apps/relay/src/sponsor.ts` |
+| Signed message format | `packages/sdk/src/message.ts` |
+| Feed engine, discovery slots, trials, A/B split | `packages/sdk/src/feed.ts` |
+| Relay validation, relay-to-relay sync, anchoring | `apps/relay/src/messages.ts`, `anchor.ts` |
+| Indexer and read API | `apps/relay/src/indexer.ts`, `api.ts` |
+| Labeler (spam, scams, bait, giveaways) | `apps/relay/src/jobs.ts` (`classify`) |
+| Reputation, scout scores, trial auto-release, epoch payouts | `apps/relay/src/jobs.ts`, `packages/sdk/src/scout.ts`, `payout.ts` |
+| Wallet-seeded onboarding and starter packs | `GET /v1/onboarding/:address` |
+| Example hosted feed | `GET /hosted/high-signal` |
+
+### Design notes
+
+* **Media via ImageKit.** Browsers upload directly with a 10-minute token the relay signs after checking the request comes from an active app key (30 uploads per account per hour). Posts store the URL plus the file's SHA-256, so a swapped file is detectable and media can later move to IPFS without changing posts.
+* **Metadata** for feeds and communities goes onchain as `data:` URIs for zero-dependency demos. Use `ipfs://` in production; the indexer already resolves it.
+* **The test stablecoin trusts the forwarder** so app keys can approve gaslessly. With real USDC, use EIP-2612 / EIP-3009 permits instead.
+* **MON price** comes from `AdminPriceOracle`, an operator-set testnet stand-in for a real oracle or DEX TWAP.
+* **Sponsored requests can't carry value.** MON payments come from the user's own wallet; stablecoin payments are fully gasless.
+* **Milestone markets.** Stakes are time-weighted (2x at open, 1x at the deadline). Winners get their stake back plus the losing pool split by weight; 1% goes to the creator and 1% to the protocol. Anyone can submit follower fids; the contract verifies each follow and counts it once. Only accounts with `fid <= maxFid` count. The keeper automates counting and settlement but holds no special power. Known limits: a creator could pre-create follower accounts before opening a market; reputation weighting is the next step. Testnet uses play money (tUSD); real money needs per-country legal review.
+* **Not built yet:** creator shares, and encrypted DMs and group chats (planned on MLS or XMTP). `KeyTypes.X25519` is reserved in the key registry for chat keys.
+
+## Deployed contracts (Monad testnet)
+
+Chain 10143, deployed from block 70755753. All 13 contracts are **verified** (Sourcify exact match), so the source is readable on [MonadVision](https://testnet.monadvision.com).
+
+| Key | Contract | Address |
+|---|---|---|
+| identity | IdentityRegistry | [`0x4174F8D9876899195a6628C011002D99371B3355`](https://testnet.monadvision.com/address/0x4174F8D9876899195a6628C011002D99371B3355) |
+| appKeys | AppKeyRegistry | [`0x7510BE2dAB2C04f62699F49eD1c3f6f10d503Cb5`](https://testnet.monadvision.com/address/0x7510BE2dAB2C04f62699F49eD1c3f6f10d503Cb5) |
+| signup | Signup | [`0x8eBCC90671b7081915fB00D9450edbEf8b2953b6`](https://testnet.monadvision.com/address/0x8eBCC90671b7081915fB00D9450edbEf8b2953b6) |
+| follows | FollowGraph | [`0x20957Bc80a020DA6050D61AEAfC1Ffcd99a26E4E`](https://testnet.monadvision.com/address/0x20957Bc80a020DA6050D61AEAfC1Ffcd99a26E4E) |
+| feeds | FeedRegistry | [`0x30b934F8fef8c8A1B1B091BeCbc93AEa5f57f5B0`](https://testnet.monadvision.com/address/0x30b934F8fef8c8A1B1B091BeCbc93AEa5f57f5B0) |
+| payments | Payments | [`0xCb3495cB6975b13e43e218a85c54426115A2CD5B`](https://testnet.monadvision.com/address/0xCb3495cB6975b13e43e218a85c54426115A2CD5B) |
+| anchor | Anchor | [`0x9e23BfDF68d205A9d45Bc24cE8acb0faE63485fe`](https://testnet.monadvision.com/address/0x9e23BfDF68d205A9d45Bc24cE8acb0faE63485fe) |
+| communities | CommunityRegistry | [`0x745E4474D8393a9596E5c0297cDF9ecf6D329e8b`](https://testnet.monadvision.com/address/0x745E4474D8393a9596E5c0297cDF9ecf6D329e8b) |
+| scouts | ScoutRegistry | [`0xf27EF7D19DcABea9EE4C29d7D178bB194cFCfD2e`](https://testnet.monadvision.com/address/0xf27EF7D19DcABea9EE4C29d7D178bB194cFCfD2e) |
+| markets | CreatorMarkets | [`0x0a22cf5A7301DDa6a3A235690F07b0bfF96Ea6B3`](https://testnet.monadvision.com/address/0x0a22cf5A7301DDa6a3A235690F07b0bfF96Ea6B3) |
+| forwarder | ERC2771Forwarder (OpenZeppelin) | [`0xdf41D66aF04532A26e082978c01b4ea9c4955Eb3`](https://testnet.monadvision.com/address/0xdf41D66aF04532A26e082978c01b4ea9c4955Eb3) |
+| oracle | AdminPriceOracle | [`0xE83B22b69d62e61170aC5b2B60ADdF91B5EA4B2d`](https://testnet.monadvision.com/address/0xE83B22b69d62e61170aC5b2B60ADdF91B5EA4B2d) |
+| tusd | TestStable (testnet dollar) | [`0x3258CB92edc5AF449B865dc091b7f770f52a2f2C`](https://testnet.monadvision.com/address/0x3258CB92edc5AF449B865dc091b7f770f52a2f2C) |
+
+## Run locally
+
+Requires Node 22+, pnpm and Foundry.
 
 ```bash
 pnpm install
 cd contracts && forge install OpenZeppelin/openzeppelin-contracts@v5.1.0 foundry-rs/forge-std --no-git && cd ..
 ```
 
-Then, in separate terminals:
+### Against a local chain
+
+Run each in its own terminal:
 
 ```bash
 pnpm chain
@@ -46,45 +142,11 @@ pnpm web
 
 Open http://localhost:3000 and create an account with a passkey.
 
-`pnpm bootstrap` creates only what the protocol needs: the operator account (@monsoc, which runs the default labeler) and the default feeds. There's no sample data. For a local demo with sample accounts and posts, `pnpm seed:demo` is still available; don't run it on a real deployment.
+`pnpm bootstrap` creates only what the protocol needs: the operator account (@monsoc, which runs the default labeler) and the default feeds. For sample accounts and posts, run `pnpm seed:demo` (local only; don't run it on a real deployment).
 
-Tests:
+### Against Monad testnet
 
-```bash
-pnpm contracts:test
-```
-
-```bash
-pnpm --filter @monsoc/sdk test
-```
-
-## Deployed: Monad testnet (chain 10143)
-
-Deployed from block 70755753. All 13 contracts are **verified** (Sourcify exact match), so the source is readable on [MonadVision](https://testnet.monadvision.com).
-
-| Key | Contract | Address |
-|---|---|---|
-| identity | IdentityRegistry | [`0x4174F8D9876899195a6628C011002D99371B3355`](https://testnet.monadvision.com/address/0x4174F8D9876899195a6628C011002D99371B3355) |
-| appKeys | AppKeyRegistry | [`0x7510BE2dAB2C04f62699F49eD1c3f6f10d503Cb5`](https://testnet.monadvision.com/address/0x7510BE2dAB2C04f62699F49eD1c3f6f10d503Cb5) |
-| signup | Signup | [`0x8eBCC90671b7081915fB00D9450edbEf8b2953b6`](https://testnet.monadvision.com/address/0x8eBCC90671b7081915fB00D9450edbEf8b2953b6) |
-| follows | FollowGraph | [`0x20957Bc80a020DA6050D61AEAfC1Ffcd99a26E4E`](https://testnet.monadvision.com/address/0x20957Bc80a020DA6050D61AEAfC1Ffcd99a26E4E) |
-| feeds | FeedRegistry | [`0x30b934F8fef8c8A1B1B091BeCbc93AEa5f57f5B0`](https://testnet.monadvision.com/address/0x30b934F8fef8c8A1B1B091BeCbc93AEa5f57f5B0) |
-| payments | Payments | [`0xCb3495cB6975b13e43e218a85c54426115A2CD5B`](https://testnet.monadvision.com/address/0xCb3495cB6975b13e43e218a85c54426115A2CD5B) |
-| anchor | Anchor | [`0x9e23BfDF68d205A9d45Bc24cE8acb0faE63485fe`](https://testnet.monadvision.com/address/0x9e23BfDF68d205A9d45Bc24cE8acb0faE63485fe) |
-| communities | CommunityRegistry | [`0x745E4474D8393a9596E5c0297cDF9ecf6D329e8b`](https://testnet.monadvision.com/address/0x745E4474D8393a9596E5c0297cDF9ecf6D329e8b) |
-| scouts | ScoutRegistry | [`0xf27EF7D19DcABea9EE4C29d7D178bB194cFCfD2e`](https://testnet.monadvision.com/address/0xf27EF7D19DcABea9EE4C29d7D178bB194cFCfD2e) |
-| markets | CreatorMarkets | [`0x0a22cf5A7301DDa6a3A235690F07b0bfF96Ea6B3`](https://testnet.monadvision.com/address/0x0a22cf5A7301DDa6a3A235690F07b0bfF96Ea6B3) |
-| forwarder | ERC2771Forwarder (OpenZeppelin) | [`0xdf41D66aF04532A26e082978c01b4ea9c4955Eb3`](https://testnet.monadvision.com/address/0xdf41D66aF04532A26e082978c01b4ea9c4955Eb3) |
-| oracle | AdminPriceOracle | [`0xE83B22b69d62e61170aC5b2B60ADdF91B5EA4B2d`](https://testnet.monadvision.com/address/0xE83B22b69d62e61170aC5b2B60ADdF91B5EA4B2d) |
-| tusd | TestStable (testnet dollar) | [`0x3258CB92edc5AF449B865dc091b7f770f52a2f2C`](https://testnet.monadvision.com/address/0x3258CB92edc5AF449B865dc091b7f770f52a2f2C) |
-
-To verify a fresh deploy (no API key needed), run this from `contracts/` for each address:
-
-```bash
-forge verify-contract <address> src/CreatorMarkets.sol:CreatorMarkets --chain 10143 --verifier sourcify --verifier-url https://sourcify-api-monad.blockvision.org/
-```
-
-Run against it locally:
+Uses the deployed contracts above. Keys live in gitignored `contracts/.env.testnet` and `apps/relay/.env.testnet` (templates: `.env.example`).
 
 ```bash
 pnpm relay:testnet
@@ -94,17 +156,17 @@ pnpm relay:testnet
 pnpm web:testnet
 ```
 
-Keys live in gitignored `contracts/.env.testnet` and `apps/relay/.env.testnet` (templates: `.env.example`).
+### Tests
 
-## Live scouting demo (testnet)
+```bash
+pnpm contracts:test
+```
 
-Scout scores need reputable followers, and reputation needs account age. On testnet, `REPUTATION_WARMUP_HOURS=1` (in `apps/relay/.env.testnet`) shortens the warm-up from a week to an hour; scoring rules are unchanged.
+```bash
+pnpm --filter @monsoc/sdk test
+```
 
-1. **An hour before:** run `pnpm demo:scouts setup`. It creates @newcreator (profile, posts, a trial post in #ai, markets enabled) and four fans who each post, so they earn reputation. Keys go to `apps/relay/.demo-keys.json` (gitignored).
-2. **Before going live:** as yourself, post a few times (your reputation needs 50% to score) and check `pnpm demo:scouts status` shows the fans as verified.
-3. **Live:** find @newcreator's trial post in the AI feed and tap **Back** (optionally back YES on a milestone market too), then run `pnpm demo:scouts grow`. The fans follow one by one; **Scouts → Your picks** updates live, the leaderboard shows your score and tier within ~15s, and the score root is re-posted onchain within a minute.
-
-
+### Deploy your own
 
 ```bash
 export MONAD_RPC_URL=https://testnet-rpc.monad.xyz
@@ -113,48 +175,18 @@ export RELAY_ADDRESS=0x...  # the relay wallet (pays sponsored gas, posts roots)
 pnpm deploy:testnet
 ```
 
-Run the relay with `CHAIN_ID=10143 RPC_URL=$MONAD_RPC_URL RELAY_PRIVATE_KEY=0x... PUBLIC_URL=https://your-relay pnpm relay`. Run the web app with `NEXT_PUBLIC_CHAIN_ID=10143 NEXT_PUBLIC_RPC_URL=... NEXT_PUBLIC_RELAY_URL=... NEXT_PUBLIC_DEMO_LOGINS=false`.
+Verify each contract (no API key needed) from `contracts/`:
 
-## What's built
+```bash
+forge verify-contract <address> src/CreatorMarkets.sol:CreatorMarkets --chain 10143 --verifier sourcify --verifier-url https://sourcify-api-monad.blockvision.org/
+```
 
-| Spec area | Where |
-|---|---|
-| Identity registry: fid, custody, recovery, handles | `contracts/src/IdentityRegistry.sol` |
-| App keys: scoped, expiring, revocable, multi key-type | `contracts/src/AppKeyRegistry.sol` |
-| One-signature signup (ID + handle + app key) | `contracts/src/Signup.sol` |
-| Follow graph: timestamps, batching, daily rate limits | `contracts/src/FollowGraph.sol` |
-| Feed registry: versioned definitions, pricing, discovery range | `contracts/src/FeedRegistry.sol` |
-| Payments: USD pricing, MON via oracle or stablecoin, splits, Merkle payouts, tips, memberships | `contracts/src/Payments.sol` |
-| Anchor: Merkle roots of content, `verify()`, escape hatch | `contracts/src/Anchor.sol` |
-| Communities: open, token-gated, invite-only, paid; roles, bans | `contracts/src/CommunityRegistry.sol` |
-| Scout score roots | `contracts/src/ScoutRegistry.sol` |
-| **Milestone markets on creators** ("will @x reach N followers by date?"), settled from the follow graph with no oracle | `contracts/src/CreatorMarkets.sol`, keeper in `apps/relay/src/markets.ts`, UI at `/markets` |
-| Sponsored gas (no MON needed) | OZ `ERC2771Forwarder` + `apps/relay/src/sponsor.ts` |
-| Signed message format | `packages/sdk/src/message.ts` |
-| Rule-based feed engine + discovery slots + trials + A/B split | `packages/sdk/src/feed.ts` |
-| Relay validation, sync between relays, anchoring | `apps/relay/src/messages.ts`, `anchor.ts` |
-| Indexer + read API | `apps/relay/src/indexer.ts`, `api.ts` |
-| Labeler (spam, scams, bait, giveaways) | `apps/relay/src/jobs.ts` (`classify`) |
-| Reputation, scout scores, trial auto-release, epoch payouts | `apps/relay/src/jobs.ts`, `packages/sdk/src/scout.ts`, `payout.ts` |
-| Wallet-seeded onboarding + starter packs | `GET /v1/onboarding/:address` |
-| Example hosted feed | `GET /hosted/high-signal` |
+Hosting the relay on Railway and the web app on Vercel is covered step by step in [DEPLOY.md](DEPLOY.md).
 
-### How a request flows
+### Live scouting demo (testnet)
 
-* **Sign up.** The custody (passkey account) signs one EIP-712 `Signup`. The relay submits it and pays gas. The fid, handle and app key are created in one transaction.
-* **Follow, join, subscribe, create a feed.** The app key signs an ERC-2771 `ForwardRequest`. The relay checks the target, the fid's daily budget and dry-runs the call, then submits through the forwarder. Contracts see the app key, check its scope for the fid, and the UI flips optimistically.
-* **Post, like, reply, Back, view, chat.** These are signed messages to the relay. It checks the signature, that the key is active, the clock, the sequence number, rate limits and membership. Every few minutes it Merkle-roots new messages (not chat) onto `Anchor`. Any post page has a "Verify onchain" button.
-* **Paid feeds.** Each subscriber's creator share is split across the creators *they* viewed, using views signed by their own app key, so a hosted feed can't misreport. One root is posted per epoch, and creators claim with a proof.
+Scout scores need reputable followers, and reputation needs account age. On testnet, `REPUTATION_WARMUP_HOURS=1` (in `apps/relay/.env.testnet`) shortens the warm-up from a week to an hour; scoring rules are unchanged.
 
-## Design decisions to review
-
-* **Passkeys via [Mera](https://mera.category.xyz/).** `apps/web/lib/custody.ts`: a passkey's PRF output derives two keys. The **custody** key (`m/44'/60'/0'/0/0`) controls the identity, lives only inside a Mera signing session during sign-up and sign-in, and is never stored. The **app key** (`m/44'/60'/0'/0/1`) is scoped and revocable, cached by the client, and re-derived on any device the passkey syncs to, so a new device needs no extra signature. Custody is a plain EOA, so no smart-account deployment and no ERC-1271 caveats. Needs HTTPS (or localhost) and a PRF-capable authenticator (iCloud Keychain, 1Password, Google Password Manager). `NEXT_PUBLIC_DEV_KEY_LOGIN=true` adds a browser-key fallback for testing.
-* **Passkeys are domain-bound.** A forked client on another domain gets a different passkey, so it would see a different identity. Before other clients launch, add WebAuthn Related Origin Requests (`/.well-known/webauthn` listing allowed origins), or a "sign in with your home client" flow where the home client's custody signs `AddKey` for the new client.
-* **Media via ImageKit.** Browsers upload directly to ImageKit with a 10-minute token the relay signs (`POST /v1/media/auth`) after checking the request is signed by an active app key; the private key never leaves the relay, and uploads are limited to 30 per account per hour. Posts store the URL **plus the file's SHA-256**, so any client can detect a swapped file, and media can later be mirrored to IPFS without changing posts. Set `IMAGEKIT_URL_ENDPOINT`, `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY` in the relay env; without them, uploads are hidden and link-pasting still works.
-* **Feed and community metadata** go onchain as `data:` URIs for zero-dependency demos. Use `ipfs://` in production: the indexer already resolves it.
-* **The test stablecoin trusts the forwarder** so app keys can approve gaslessly. With real USDC, use EIP-2612 / EIP-3009 permits instead.
-* **MON price** comes from `AdminPriceOracle`, an operator-set testnet stand-in for a real oracle or DEX TWAP (open question in the spec).
-* **Sponsored requests can't carry value.** MON payments must come from the user's own wallet; stablecoin payments are fully gasless.
-* **Payout reputation gate.** Paid subscribers count fully, since it's their own money. Reputation weighting applies to free signals (discovery, scouts, labeler trust).
-* **Milestone markets.** Creators opt in (and can't bet on themselves). Stakes are time-weighted, 2x at open falling to 1x at the deadline, so backing a creator early earns more. Winners get their stake back plus the losing pool split by weight; 1% of the losing pool goes to the creator, 1% to the protocol. Settlement reads `FollowGraph` directly: anyone submits follower fids, the contract verifies each follow and counts it once; YES settles the moment the target is hit, NO at the deadline. Only accounts with `fid <= maxFid` (accounts that existed when the market opened) count, so new sybil accounts can't swing a market. The relay's keeper automates counting and settlement but holds no special power. Known limits: a creator could pre-create follower accounts before opening a market, and an attacker could follow with pre-existing accounts they control; reputation weighting (as in scout scores) is the next step. Testnet uses play money (tUSD); real money needs per-country legal review.
-* **Not built (per the roadmap):** creator shares, and encrypted DMs/group chats (v2: MLS/OpenMLS or XMTP). `KeyTypes.X25519` is reserved in the key registry for chat keys.
+1. **An hour before:** run `pnpm demo:scouts setup`. It creates @newcreator (profile, posts, a trial post in #ai, markets enabled) and four fans who each post, so they earn reputation. Keys go to `apps/relay/.demo-keys.json` (gitignored).
+2. **Before going live:** post a few times as yourself (your reputation needs 50% to score) and check that `pnpm demo:scouts status` shows the fans as verified.
+3. **Live:** find @newcreator's trial post in the AI feed and tap **Back** (optionally back YES on a milestone market too), then run `pnpm demo:scouts grow`. The fans follow one by one, **Scouts → Your picks** updates live, the leaderboard shows your score within about 15 seconds, and the score root is re-posted onchain within a minute.
