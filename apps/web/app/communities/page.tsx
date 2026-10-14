@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { CommunityInfo } from "@monsoc/sdk";
+import type { CommunityInfo, FeedInfo } from "@monsoc/sdk";
+import { isTopicFeed } from "@/lib/feeds";
 import { communitiesAbi } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { useSession, relay, deployment } from "@/lib/session";
@@ -15,7 +16,11 @@ export default function Communities() {
   const [list, setList] = useState<CommunityInfo[]>([]);
   const [mine, setMine] = useState<Set<number>>(new Set());
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", rules: "", tags: "", joinType: "0", price: "5" });
+  const [form, setForm] = useState({ name: "", description: "", rules: "", tags: "", joinType: "0", price: "5", feedId: "0" });
+  const [styles, setStyles] = useState<FeedInfo[]>([]);
+  useEffect(() => {
+    relay.feeds().then((fs) => setStyles(fs.filter((f) => f.kind === "rule" && f.definition && !isTopicFeed(f))), () => undefined);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -41,7 +46,7 @@ export default function Communities() {
       const jt = Number(form.joinType);
       await call(deployment.communities, communitiesAbi, "create", [
         BigInt(fid), jt, jt === 1 ? deployment.tusd : "0x0000000000000000000000000000000000000000", jt === 1 ? 1_000_000n : 0n,
-        jt === 3 ? BigInt(Math.round(Number(form.price) * 1e6)) : 0n, jt === 3 ? 30n * 86400n : 0n, 0n, toDataUri(meta),
+        jt === 3 ? BigInt(Math.round(Number(form.price) * 1e6)) : 0n, jt === 3 ? 30n * 86400n : 0n, BigInt(form.feedId), toDataUri(meta),
       ]);
       setCreating(false);
       setTimeout(load, 1500);
@@ -71,6 +76,12 @@ export default function Communities() {
               <option value="1">Token-gated (≥1 tUSD)</option>
               <option value="2">Invite-only</option>
               <option value="3">Paid</option>
+            </select>
+            <select className="input w-auto" value={form.feedId} onChange={(e) => setForm({ ...form, feedId: e.target.value })} title="How the community feed is ranked">
+              <option value="0">Ranking: default</option>
+              {styles.map((f) => (
+                <option key={f.id} value={f.id}>Ranking: {f.name}</option>
+              ))}
             </select>
             {form.joinType === "3" && (
               <label className="flex items-center gap-1">$<input className="input w-20" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /> / 30d</label>

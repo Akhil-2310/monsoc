@@ -8,6 +8,8 @@ import { FeedView } from "@/components/FeedView";
 import { Composer } from "@/components/Composer";
 import { Avatar } from "@/components/Avatar";
 import { useSession, relay, deployment } from "@/lib/session";
+import { isTopicFeed } from "@/lib/feeds";
+import { SlidersHorizontal } from "lucide-react";
 import { usd, errMsg, timeAgo, JOIN_LABEL } from "@/lib/format";
 
 type Detail = CommunityInfo & { members: (Profile & { role: number })[] };
@@ -118,8 +120,9 @@ export default function CommunityPage({ params }: { params: Promise<{ id: string
       </div>
       {tab === "feed" && (
         <>
+          <CommunityRanking c={c} feeds={feeds} canEdit={isMod} onChanged={load} />
           {me && <Composer community={cid} placeholder={`Post to ${c.name}…`} onPosted={() => setReload((r) => r + 1)} />}
-          <FeedView feed={communityFeed(c, feeds)} community={cid} reloadKey={reload} />
+          <FeedView key={c.feedId} feed={communityFeed(c, feeds)} community={cid} reloadKey={reload} />
         </>
       )}
       {tab === "chat" && (
@@ -245,6 +248,57 @@ function ChatRoom({ community, room, canPost }: { community: number; room: strin
         <p className="border-t border-line p-3 text-center text-xs text-muted">Join to chat.</p>
       )}
       {err && <p className="px-3 pb-2 text-xs text-bad">{err}</p>}
+    </div>
+  );
+}
+
+/**
+ * The community decides how its own feed is ranked (spec: "communities decide what their own feeds reward").
+ * Moderators pick a ranking style; the choice is stored onchain in the CommunityRegistry.
+ */
+function CommunityRanking({ c, feeds, canEdit, onChanged }: { c: CommunityInfo; feeds: FeedInfo[]; canEdit: boolean; onChanged: () => void }) {
+  const { fid, call } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const styles = feeds.filter((f) => f.kind === "rule" && f.definition && !isTopicFeed(f));
+  const current = styles.find((f) => f.id === c.feedId);
+
+  const change = async (feedId: number) => {
+    if (!fid) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await call(deployment.communities, communitiesAbi, "update", [BigInt(c.id), BigInt(fid), c.uri, BigInt(feedId)]);
+      setTimeout(onChanged, 1500);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5 text-sm">
+      <SlidersHorizontal size={14} className="text-muted" />
+      <span className="text-muted">Ranked by</span>
+      {canEdit ? (
+        <select
+          className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold"
+          value={c.feedId}
+          disabled={busy}
+          onChange={(e) => change(Number(e.target.value))}
+        >
+          <option value={0}>Default (replies first)</option>
+          {styles.map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+      ) : (
+        <span className="chip bg-accent-soft text-accent">{current?.name ?? "Default (replies first)"}</span>
+      )}
+      <span className="hidden truncate text-xs text-muted sm:inline">{current?.description ?? "Conversations ranked above likes, newest first."}</span>
+      {busy && <span className="text-xs text-muted">Saving…</span>}
+      {err && <span className="text-xs text-bad">{err}</span>}
     </div>
   );
 }

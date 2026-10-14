@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { feedHash, validateFeed, feedsAbi, DEFAULT_FEEDS, type FeedDefinition, type FeedInfo } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { useSession, relay, deployment } from "@/lib/session";
+import { isTopicFeed, STYLE_KEY, TOPIC_KEY } from "@/lib/feeds";
 import { usd, pct, errMsg } from "@/lib/format";
 
 const TEMPLATE: FeedDefinition = {
@@ -119,7 +120,12 @@ export default function Feeds() {
               <button
                 className="btn-primary btn-sm"
                 onClick={() => {
-                  localStorage.setItem("monsoc.feed", String(f.id));
+                  // topics become the selected pill; styles power "For you"
+                  if (isTopicFeed(f)) localStorage.setItem(TOPIC_KEY, String(f.id));
+                  else {
+                    localStorage.setItem(STYLE_KEY, String(f.id));
+                    localStorage.removeItem(TOPIC_KEY);
+                  }
                   location.href = "/";
                 }}
               >

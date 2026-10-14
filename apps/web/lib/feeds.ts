@@ -50,3 +50,16 @@ export async function loadFeed(feed: FeedInfo, fid: number, subscribed: boolean,
   );
   return { items: interleave(main, disc, share, 60), noDiscovery };
 }
+
+/**
+ * Topic feeds ("Sports", "AI") narrow *what* you see; style feeds ("Real conversations", "High signal")
+ * decide *how* it's ranked. Home shows topics as pills and uses a style for "For you"; communities pick a
+ * style for their own feed.
+ */
+export function isTopicFeed(f: FeedInfo): boolean {
+  const s = f.definition?.sources;
+  return f.kind === "rule" && !!s?.topics?.length && !s.following && !s.everyone && !s.communities?.length;
+}
+
+export const STYLE_KEY = "monsoc.style";
+export const TOPIC_KEY = "monsoc.feed";

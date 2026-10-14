@@ -329,6 +329,7 @@ interface CommunityRow {
   price_usd: number;
   period: number;
   feed_id: number;
+  uri: string;
   meta: string | null;
   member_count: number;
 }
@@ -348,6 +349,7 @@ function toCommunity(r: CommunityRow): CommunityInfo {
     priceUsd: r.price_usd,
     period: r.period,
     feedId: r.feed_id,
+    uri: r.uri,
     memberCount: r.member_count,
     rooms: meta.rooms ?? ["general"],
     tags: meta.tags ?? [],

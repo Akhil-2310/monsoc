@@ -6,52 +6,67 @@ import { Shell, PageHeader } from "@/components/Shell";
 import { FeedView } from "@/components/FeedView";
 import { Composer } from "@/components/Composer";
 import { Avatar } from "@/components/Avatar";
-import { Gem, Plus, TrendingUp, UserPlus, Zap } from "lucide-react";
+import { Check, ChevronDown, Gem, Plus, SlidersHorizontal, TrendingUp, UserPlus, Zap } from "lucide-react";
+import { useRef } from "react";
 import { useSession, relay } from "@/lib/session";
-import { BUILTIN_FEEDS } from "@/lib/feeds";
+import { BUILTIN_FEEDS, isTopicFeed, STYLE_KEY, TOPIC_KEY } from "@/lib/feeds";
 import { usd } from "@/lib/format";
 import { useLiveMarkets } from "@/lib/useMarkets";
 import { timeLeft } from "@/lib/markets";
 import cfg from "@/monsoc.config";
 
-const FEED_KEY = "monsoc.feed";
-
-/** The main feed: feed switcher, composer, ranked posts with live markets. Guests see it read-only at /explore. */
+/** The main feed: "For you" (ranked by your chosen style) plus topic feeds. Guests see it read-only at /explore. */
 export function HomeFeed() {
   const { fid } = useSession();
   const [feeds, setFeeds] = useState<FeedInfo[] | null>(null);
-  const [active, setActive] = useState<number | null>(null);
+  const [styleId, setStyleId] = useState<number | null>(null); // ranking behind "For you"
+  const [topicId, setTopicId] = useState<number | null>(null); // null = "For you"
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     relay
       .feeds()
-      .then((fs) => {
-        const list = fs.length ? fs.filter((f) => !cfg.defaultFeeds.length || cfg.defaultFeeds.includes(f.id)) : BUILTIN_FEEDS;
+      .then((fs) => (fs.length ? fs.filter((f) => !cfg.defaultFeeds.length || cfg.defaultFeeds.includes(f.id)) : BUILTIN_FEEDS))
+      .catch(() => BUILTIN_FEEDS)
+      .then((list) => {
         setFeeds(list);
-        const saved = Number(localStorage.getItem(FEED_KEY));
-        setActive(list.some((f) => f.id === saved) ? saved : list[0]!.id);
-      })
-      .catch(() => {
-        setFeeds(BUILTIN_FEEDS);
-        setActive(BUILTIN_FEEDS[0]!.id);
+        const styles = list.filter((f) => !isTopicFeed(f));
+        const savedStyle = Number(localStorage.getItem(STYLE_KEY));
+        setStyleId(styles.some((f) => f.id === savedStyle) ? savedStyle : (styles[0]?.id ?? null));
+        const savedTopic = Number(localStorage.getItem(TOPIC_KEY));
+        setTopicId(list.some((f) => f.id === savedTopic && isTopicFeed(f)) ? savedTopic : null);
       });
   }, []);
 
-  const pick = (id: number) => {
-    setActive(id);
-    localStorage.setItem(FEED_KEY, String(id));
+  const topics = feeds?.filter(isTopicFeed) ?? [];
+  const styles = feeds?.filter((f) => !isTopicFeed(f)) ?? [];
+  const style = styles.find((f) => f.id === styleId);
+  const feed = topicId ? topics.find((f) => f.id === topicId) : style;
+
+  const pickTopic = (id: number | null) => {
+    setTopicId(id);
+    id ? localStorage.setItem(TOPIC_KEY, String(id)) : localStorage.removeItem(TOPIC_KEY);
   };
-  const feed = feeds?.find((f) => f.id === active);
+  const pickStyle = (id: number) => {
+    setStyleId(id);
+    localStorage.setItem(STYLE_KEY, String(id));
+    pickTopic(null);
+  };
 
   return (
     <Shell aside={<HomeAside />}>
-      <PageHeader title={fid ? "Home" : "Explore"} sub={feed ? `${feed.name}${feed.ownerHandle ? ` · by @${feed.ownerHandle}` : ""} · v${feed.version}` : cfg.tagline} />
-      {/* one-tap feed switcher */}
+      <PageHeader
+        title={fid ? "Home" : "Explore"}
+        sub={feed ? (topicId ? `${feed.name} · ${feed.description}` : `For you · ranked by ${style?.name ?? "default"}`) : cfg.tagline}
+        right={styles.length > 1 && <RankingMenu styles={styles} value={styleId} onChange={pickStyle} />}
+      />
+      {/* "For you" + topic feeds; ranking styles live in the menu above (and in communities) */}
       <div className="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2.5 [scrollbar-width:none]">
-        {feeds?.map((f) => (
-          <button key={f.id} onClick={() => pick(f.id)} className={`tab ${f.id === active ? "tab-on" : ""}`} title={f.description}>
-            {f.kind === "hosted" && <Zap size={13} className="mr-1 inline -translate-y-px" />}
+        <button onClick={() => pickTopic(null)} className={`tab ${topicId === null ? "tab-on" : ""}`}>
+          For you
+        </button>
+        {topics.map((f) => (
+          <button key={f.id} onClick={() => pickTopic(f.id)} className={`tab ${f.id === topicId ? "tab-on" : ""}`} title={f.description}>
             {f.name}
             {f.priceUsd > 0 && <span className="ml-1 text-[10px] text-warn">{usd(f.priceUsd)}</span>}
           </button>
@@ -137,6 +152,56 @@ function HomeAside() {
         Feeds are open: rule-based feeds run in your browser from a public JSON definition, hosted feeds return ranked ids. Every feed reserves slots for
         creators you don't follow.
       </p>
+    </div>
+  );
+}
+
+/** Pick the ranking style that powers "For you". */
+function RankingMenu({ styles, value, onChange }: { styles: FeedInfo[]; value: number | null; onChange: (id: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const current = styles.find((f) => f.id === value);
+  return (
+    <div ref={ref} className="relative">
+      <button className="btn-ghost btn-sm gap-1" onClick={() => setOpen(!open)} title="How 'For you' is ranked">
+        <SlidersHorizontal size={13} />
+        <span className="hidden sm:inline">{current?.name ?? "Ranking"}</span>
+        <ChevronDown size={13} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 w-72 animate-pop overflow-hidden rounded-2xl border border-line bg-panel p-1 shadow-pop">
+          <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Rank “For you” by</p>
+          {styles.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => {
+                onChange(f.id);
+                setOpen(false);
+              }}
+              className="flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left hover:bg-panel-2"
+            >
+              <span className="mt-0.5 w-4 text-accent">{f.id === value && <Check size={15} />}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1 text-sm font-semibold">
+                  {f.kind === "hosted" && <Zap size={12} className="text-accent" />}
+                  {f.name}
+                  {f.priceUsd > 0 && <span className="text-[10px] text-warn">{usd(f.priceUsd)}</span>}
+                </span>
+                <span className="line-clamp-2 text-xs text-muted">{f.description}</span>
+              </span>
+            </button>
+          ))}
+          <Link href="/feeds" className="mt-1 block border-t border-line px-3 py-2 text-xs font-semibold text-accent hover:underline">
+            Browse or publish feeds →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

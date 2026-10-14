@@ -8,6 +8,7 @@ import { Shell, PageHeader } from "@/components/Shell";
 import { PostCard } from "@/components/PostCard";
 import { Avatar } from "@/components/Avatar";
 import { useSession, relay } from "@/lib/session";
+import { isTopicFeed, STYLE_KEY, TOPIC_KEY } from "@/lib/feeds";
 import { errMsg } from "@/lib/format";
 
 type Results = { users: Profile[]; posts: PostView[]; communities: CommunityInfo[]; feeds: FeedInfo[]; tags: { tag: string; posts: number }[] };
@@ -65,7 +66,11 @@ function Search() {
       <button
         key={f.id}
         onClick={() => {
-          localStorage.setItem("monsoc.feed", String(f.id));
+          if (isTopicFeed(f)) localStorage.setItem(TOPIC_KEY, String(f.id));
+          else {
+            localStorage.setItem(STYLE_KEY, String(f.id));
+            localStorage.removeItem(TOPIC_KEY);
+          }
           router.push("/");
         }}
         className="block w-full px-4 py-3 text-left hover:bg-panel"

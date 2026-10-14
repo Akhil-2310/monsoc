@@ -33,7 +33,10 @@ export interface CommunityInfo {
   gateMin: string;
   priceUsd: number;
   period: number;
+  /** feed whose ranking style the community uses for its own feed (0 = default) */
   feedId: number;
+  /** metadata link (name, rules, rooms); needed to update the community */
+  uri: string;
   memberCount: number;
   rooms: string[];
   tags: string[];
