@@ -1,0 +1,10 @@
+**/node_modules
+**/.next
+**/dist
+**/*.db
+**/*.db-*
+**/.env*
+!**/.env.example
+**/.demo-keys.json
+contracts
+.git

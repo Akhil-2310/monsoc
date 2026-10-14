@@ -103,6 +103,12 @@ app.post("/v1/media/auth", async (c) => c.json(await mediaAuth(await c.req.json(
 
 // ------------------------------------------------------------------ info
 
+/** Liveness for the host (Railway health check): the process is up and the database answers. */
+app.get("/health", (c) => {
+  const indexed = get<{ value: string }>("SELECT value FROM kv WHERE key = 'indexer.block'");
+  return c.json({ ok: true, indexedBlock: indexed ? Number(indexed.value) : null });
+});
+
 app.get("/v1/info", async (c) =>
   c.json({ chainId: config.chainId, deployment, relay: relayAccount.address, epoch: await currentEpoch().catch(() => 0) }),
 );

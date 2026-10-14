@@ -68,20 +68,27 @@ async function main() {
   const general = [DEFAULT_FEEDS.home!, DEFAULT_FEEDS.conversations!, DEFAULT_FEEDS.noBait!];
   const topics = TOPICS.map((t) => topicFeed(t.id));
   for (const def of [...general, ...topics]) {
-    if (have.has(def.name)) continue;
+    if (have.has(def.name) || def.name === "High signal") continue;
     const uri = dataUri({ name: def.name, description: def.description, definition: def });
     await call(deployment.feeds, feedsAbi, "create", [BigInt(fid), 0, uri, feedHash(def), 0n, 0, Math.round(def.discovery * 10_000)]);
     console.log(`[bootstrap] feed: ${def.name}`);
   }
   // reference hosted feed served by this relay (free); anyone can register their own
-  if (!have.has("High signal")) {
-    const hosted = {
-      name: "High signal",
-      description: "Reputable authors with real conversations. Server-ranked.",
-      endpoint: `${config.publicUrl}/hosted/high-signal`,
-    };
-    await call(deployment.feeds, feedsAbi, "create", [BigInt(fid), 1, dataUri(hosted), keccak256(toBytes(JSON.stringify(hosted))), 0n, 0, 1500]);
+  const hosted = {
+    name: "High signal",
+    description: "Reputable authors with real conversations. Server-ranked.",
+    endpoint: `${config.publicUrl}/hosted/high-signal`,
+  };
+  const hostedUri = dataUri(hosted);
+  const hostedHash = keccak256(toBytes(JSON.stringify(hosted)));
+  const existingHosted = existing.find((f) => f.name === hosted.name && f.ownerFid === fid);
+  if (!existingHosted) {
+    await call(deployment.feeds, feedsAbi, "create", [BigInt(fid), 1, hostedUri, hostedHash, 0n, 0, 1500]);
     console.log(`[bootstrap] feed: ${hosted.name} (hosted)`);
+  } else if (existingHosted.endpoint !== hosted.endpoint) {
+    // e.g. moving from localhost to a public domain: point the onchain record at the new endpoint
+    await call(deployment.feeds, feedsAbi, "update", [BigInt(existingHosted.id), hostedUri, hostedHash]);
+    console.log(`[bootstrap] ${hosted.name}: endpoint ${existingHosted.endpoint} → ${hosted.endpoint}`);
   }
   // the AI topic feed supersedes the older single-tag "AI builders" feed
   const legacy = existing.find((f) => f.name === DEFAULT_FEEDS.ai!.name && f.ownerFid === fid && f.active);
