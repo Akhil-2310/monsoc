@@ -359,6 +359,7 @@ export async function indexOnce(): Promise<number> {
     let from = BigInt(kvGet("indexer.block") ?? String(deployment.startBlock - 1)) + 1n;
     if (from < 0n) from = 0n;
     let handled = 0;
+    let pages = 0;
     while (from <= head) {
       const to = from + config.logRange - 1n < head ? from + config.logRange - 1n : head;
       const logs = await publicClient.getLogs({
@@ -381,6 +382,10 @@ export async function indexOnce(): Promise<number> {
       }
       tx(() => kvSet("indexer.block", String(to)));
       from = to + 1n;
+      if (from <= head) {
+        await new Promise((r) => setTimeout(r, config.logThrottleMs));
+        if (++pages % 100 === 0) console.log(`[indexer] catching up: block ${from} / ${head}`);
+      }
     }
     return handled;
   } finally {

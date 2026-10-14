@@ -16,6 +16,8 @@ export const config = {
   indexIntervalMs: Number(env.INDEX_INTERVAL_MS ?? 1_000),
   /** eth_getLogs block span per request; Monad public RPCs cap this low */
   logRange: BigInt(env.LOG_RANGE ?? 100),
+  /** pause between eth_getLogs pages while catching up, to stay under RPC rate limits */
+  logThrottleMs: Number(env.LOG_THROTTLE_MS ?? 100),
   jobsIntervalMs: Number(env.JOBS_INTERVAL_MS ?? 30_000),
   /** other relays to pull messages from (comma separated base URLs) */
   peers: (env.PEERS ?? "").split(",").filter(Boolean),

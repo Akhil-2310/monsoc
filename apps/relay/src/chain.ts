@@ -15,8 +15,10 @@ export const chain = getChain(config.chainId);
 export const deployment = getDeployment(config.chainId);
 export const relayAccount = privateKeyToAccount(config.relayKey);
 
-export const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
-export const walletClient = createWalletClient({ chain, transport: http(config.rpcUrl), account: relayAccount });
+// public RPCs rate-limit (Monad testnet: 25 req/s); back off and retry instead of failing the job
+const transport = http(config.rpcUrl, { retryCount: 6, retryDelay: 500 });
+export const publicClient = createPublicClient({ chain, transport });
+export const walletClient = createWalletClient({ chain, transport, account: relayAccount });
 
 /** Serialize relay-wallet writes so nonces never collide. */
 let queue: Promise<unknown> = Promise.resolve();
