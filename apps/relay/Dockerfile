@@ -3,7 +3,7 @@
 # node:sqlite needs Node >= 22.5.
 FROM node:23-slim
 WORKDIR /app
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.2.1 --activate
 
 # install deps for the relay + sdk only (layer cached until lockfile/manifests change)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
