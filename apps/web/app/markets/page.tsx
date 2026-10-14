@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { MarketInfo } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { MarketCard } from "@/components/MarketCard";
+import { NewMarketPicker } from "@/components/NewMarket";
 import { useSession, relay } from "@/lib/session";
 import { errMsg } from "@/lib/format";
 
@@ -18,6 +19,7 @@ export default function Markets() {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("open");
   const [list, setList] = useState<MarketInfo[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const load = useCallback(() => {
     const q = tab === "mine" ? { fid: fid ?? -1 } : { status: tab };
@@ -32,7 +34,18 @@ export default function Markets() {
 
   return (
     <Shell aside={<HowItWorks />}>
-      <PageHeader title="Markets" sub="Back creators before they break through. Settled by the onchain follow graph." />
+      <PageHeader
+        title="Markets"
+        sub="Back creators before they break through. Settled by the onchain follow graph."
+        right={
+          fid && (
+            <button className="btn-primary btn-sm" onClick={() => setPicking(true)}>
+              + New market
+            </button>
+          )
+        }
+      />
+      {picking && <NewMarketPicker onClose={() => setPicking(false)} />}
       <div className="flex gap-1 border-b border-line px-3 py-2">
         {TABS.filter((t) => t.id !== "mine" || fid).map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "tab-on" : ""}`} onClick={() => setTab(t.id)}>
@@ -45,7 +58,7 @@ export default function Markets() {
         <div className="p-8 text-center text-sm text-muted">
           {tab === "open" ? (
             <>
-              No live markets yet. Open one from a creator's profile
+              No live markets yet. Tap + New market, or open one from a creator's profile
               {profile?.handle && (
                 <>
                   , or{" "}

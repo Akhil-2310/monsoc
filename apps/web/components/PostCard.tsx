@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useCreatorMarket, useMarket } from "@/lib/useMarkets";
 import { MarketCard } from "./MarketCard";
+import { useMarketLauncher } from "./NewMarket";
 import cfg from "@/monsoc.config";
 
 const viewed = new Set<string>();
@@ -105,6 +106,7 @@ export function PostCard({
   const [repostHash, setRepostHash] = useState<Hex | null>(post.viewer?.repost ?? null);
   const [backed, setBacked] = useState(post.viewer?.backed ?? false);
   const [tipState, setTipState] = useState<"idle" | "sending" | "done">("idle");
+  const launcher = useMarketLauncher();
   const [removed, setRemoved] = useState(false);
   const [menu, setMenu] = useState(false);
   const creatorMarket = useCreatorMarket(post.fid);
@@ -242,13 +244,22 @@ export function PostCard({
                     <MoreHorizontal size={18} />
                   </button>
                   {menu && (
-                    <div className="absolute right-0 top-8 z-20 w-48 animate-pop overflow-hidden rounded-2xl border border-line bg-panel p-1 shadow-pop" onMouseLeave={() => setMenu(false)}>
+                    <div className="absolute right-0 top-8 z-20 w-60 animate-pop overflow-hidden rounded-2xl border border-line bg-panel p-1 shadow-pop" onMouseLeave={() => setMenu(false)}>
                       {isOwn ? (
                         <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-bad hover:bg-panel-2" onClick={remove}>
                           <Trash2 size={15} /> Delete post
                         </button>
                       ) : (
                         <>
+                          {cfg.plugins.markets && (
+                            <button
+                              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-panel-2"
+                              disabled={launcher.busy}
+                              onClick={() => (setMenu(false), launcher.launch(post.fid))}
+                            >
+                              <TrendingUp size={15} className="text-accent" /> Open a market on @{post.handle ?? post.fid}
+                            </button>
+                          )}
                           <button className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-panel-2" onClick={() => relate("mute")}>
                             <VolumeX size={15} className="text-muted" /> Mute @{post.handle ?? post.fid}
                           </button>
@@ -387,6 +398,8 @@ export function PostCard({
             </span>
           </div>
           {err && <p className="mt-1 text-xs text-bad">{err}</p>}
+          {launcher.error && <p className="mt-1 text-xs text-muted">{launcher.error}</p>}
+          {launcher.sheet}
         </div>
       </div>
     </article>
