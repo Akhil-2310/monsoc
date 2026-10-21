@@ -17,6 +17,7 @@ Two services: the **relay** on Railway (long-running Node + SQLite on a volume) 
    | `RELAY_PRIVATE_KEY` | relay wallet key (pays sponsored gas) |
    | `LABELER_PRIVATE_KEY` | labeler/operator app key |
    | `IMAGEKIT_URL_ENDPOINT`, `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY` | from ImageKit |
+   | `ANTHROPIC_API_KEY` | optional: turns on the AI topic labeler and the "tell me what you want to see" feed builder (uses `claude-opus-5-5`; override with `AI_MODEL`) |
    | `PUBLIC_URL` | the relay's public URL, e.g. `https://relay.yourdomain.xyz` |
    | `LOG_RANGE` | `100` |
    | `INDEX_INTERVAL_MS` | `1500` |

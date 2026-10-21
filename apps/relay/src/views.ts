@@ -62,6 +62,8 @@ interface PostRow {
   v_backed: number | null;
 }
 
+const labelsOf = (r: PostRow) => (r.label_list ? r.label_list.split(",") : []);
+
 function toView(r: PostRow, viewer: number): PostView {
   return {
     hash: r.hash,
@@ -72,13 +74,13 @@ function toView(r: PostRow, viewer: number): PostView {
     type: r.type,
     timestamp: r.ts,
     text: r.text,
-    tags: JSON.parse(r.tags),
+    tags: [...new Set([...(JSON.parse(r.tags) as string[]), ...labelsOf(r).filter((l) => l.startsWith("topic:")).map((l) => l.slice(6))])],
     links: JSON.parse(r.links),
     media: JSON.parse(r.media),
     community: r.community,
     parent: r.parent,
     market: r.market ?? null,
-    labels: r.label_list ? r.label_list.split(",") : [],
+    labels: labelsOf(r).filter((l) => !l.startsWith("topic:")),
     trial: r.trial ? { ...JSON.parse(r.trial), status: r.trial_status } : null,
     stats: {
       likes: r.likes,

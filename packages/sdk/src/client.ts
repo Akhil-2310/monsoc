@@ -215,6 +215,14 @@ export class RelayClient {
       `/v1/search?${params}`,
     );
   }
+  /** Is the relay's AI feed builder / topic labeler on? */
+  aiStatus() {
+    return this.req<{ enabled: boolean }>("/v1/ai/status");
+  }
+  /** "I want to see posts about sports" -> feed settings + a FeedDefinition to run with rankFeed. Pass `previous` to refine. */
+  aiFeed(prompt: string, previous?: AiFeedSpec) {
+    return this.post<{ spec: AiFeedSpec; definition: FeedDefinition }>("/v1/ai/feed", { prompt, previous });
+  }
   proof(hash: Hex) {
     return this.req<{ batchId: number; root: Hex; proof: Hex[]; txHash: Hex } | { pending: true }>(`/v1/proofs/${hash}`);
   }
@@ -306,4 +314,20 @@ export class RelayClient {
 
 export function replaceBigInt(_k: string, v: unknown) {
   return typeof v === "bigint" ? v.toString() : v;
+}
+
+/** Feed settings the relay's AI feed builder returns; send it back as `previous` to refine. */
+export interface AiFeedSpec {
+  name: string;
+  summary: string;
+  topics: string[];
+  tags: string[];
+  excludeTags: string[];
+  audience: "everyone" | "following";
+  moreNewCreators: boolean;
+  ranking: "balanced" | "conversations" | "popular" | "latest";
+  freshness: "today" | "this_week" | "any";
+  hideBait: boolean;
+  includeReplies: boolean;
+  notes: string;
 }

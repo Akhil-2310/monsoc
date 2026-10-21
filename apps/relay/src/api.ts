@@ -22,6 +22,7 @@ import { forward, signup, faucet, addKey } from "./sponsor";
 import { mediaAuth, mediaEnabled } from "./media";
 import { listMarkets, marketDetail, creatorMarketInfo } from "./markets";
 import { trialResults, scoutScoresFor, currentEpoch, picksFor } from "./jobs";
+import { aiEnabled, buildFeed, type FeedSpec } from "./ai";
 
 export const app = new Hono();
 app.use("*", cors());
@@ -100,6 +101,25 @@ app.post("/v1/faucet", async (c) => {
 
 app.get("/v1/media/config", (c) => c.json({ enabled: mediaEnabled(), provider: mediaEnabled() ? "imagekit" : null }));
 app.post("/v1/media/auth", async (c) => c.json(await mediaAuth(await c.req.json())));
+
+// ------------------------------------------------------------------ AI feed builder
+
+const aiHits = new Map<string, number[]>();
+app.get("/v1/ai/status", (c) => c.json({ enabled: aiEnabled() }));
+/** "I want to see posts about sports" -> a feed definition the client runs with the normal engine. */
+app.post("/v1/ai/feed", async (c) => {
+  if (!aiEnabled()) throw new RejectError("AI features are off on this relay");
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const hour = Date.now() - 3_600_000;
+  const hits = (aiHits.get(ip) ?? []).filter((t) => t > hour);
+  if (hits.length >= config.ai.feedRequestsPerHour) throw new RejectError("Too many requests; try again in a bit");
+  aiHits.set(ip, [...hits, Date.now()]);
+  const { prompt, previous } = await c.req.json<{ prompt?: string; previous?: FeedSpec }>();
+  const text = (prompt ?? "").trim();
+  if (!text) throw new RejectError("Say what you'd like to see");
+  if (text.length > 300) throw new RejectError("Keep it under 300 characters");
+  return c.json(await buildFeed(text, previous));
+});
 
 // ------------------------------------------------------------------ info
 

@@ -373,14 +373,12 @@ export function classify(text: string, links: string[]): string[] {
   return labels;
 }
 
-export function startLabeler() {
-  bus.on("message", async (m: SignedMessage) => {
-    if (!["post", "reply", "trial-post"].includes(m.data.type)) return;
+/** Publish labels on a post as the default labeler (@monsoc). Shared by the keyword and AI labelers so seq stays ordered. */
+let labelQueue: Promise<unknown> = Promise.resolve();
+export function publishLabels(target: Hex, labels: string[]): Promise<void> {
+  const job = labelQueue.then(async () => {
     const fid = Number(kvGet("labeler.fid") ?? 0);
-    if (!fid) return;
-    const body = m.data.body as PostBody;
-    const labels = classify(body.text, body.links ?? []);
-    if (!labels.length) return;
+    if (!fid || !labels.length) return;
     labelerSeq += 1;
     kvSet("labeler.seq", String(labelerSeq));
     const msg = await signMessage(labelerAccount, {
@@ -388,13 +386,24 @@ export function startLabeler() {
       fid,
       timestamp: Date.now(),
       seq: labelerSeq,
-      body: { target: m.hash, labels },
+      body: { target, labels },
     });
     try {
       await ingest(msg, { source: "local" });
     } catch (e) {
       console.warn("[labeler]", (e as Error).message);
     }
+  });
+  labelQueue = job.catch(() => undefined);
+  return job;
+}
+
+export function startLabeler() {
+  bus.on("message", (m: SignedMessage) => {
+    if (!["post", "reply", "trial-post"].includes(m.data.type)) return;
+    const body = m.data.body as PostBody;
+    const labels = classify(body.text, body.links ?? []);
+    if (labels.length) void publishLabels(m.hash, labels);
   });
 }
 

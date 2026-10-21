@@ -31,6 +31,17 @@ export const config = {
   reputationWarmupMs: Number(env.REPUTATION_WARMUP_HOURS ?? 168) * 3_600_000,
   /** how often scout scores are re-published onchain (at most) */
   scoutRootIntervalMs: Number(env.SCOUT_ROOT_INTERVAL_MS ?? 10 * 60_000),
+  /** AI topic labeler + natural-language feed builder; off unless ANTHROPIC_API_KEY is set */
+  ai: {
+    apiKey: env.ANTHROPIC_API_KEY ?? "",
+    model: env.AI_MODEL ?? "claude-opus-5-5",
+    batchSize: Number(env.AI_LABEL_BATCH ?? 20),
+    intervalMs: Number(env.AI_LABEL_INTERVAL_MS ?? 10_000),
+    /** only backfill posts newer than this */
+    backfillDays: Number(env.AI_BACKFILL_DAYS ?? 30),
+    /** feed-builder requests per IP per hour */
+    feedRequestsPerHour: Number(env.AI_FEED_PER_HOUR ?? 30),
+  },
   /** ImageKit media uploads; leave unset to disable uploads (link pasting still works) */
   imagekit: {
     publicKey: env.IMAGEKIT_PUBLIC_KEY ?? "",

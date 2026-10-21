@@ -1,6 +1,7 @@
 "use client";
 import { LayoutGrid, Sparkles, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { FEED_DRAFT_KEY } from "@/components/AskFeed";
 import { feedHash, validateFeed, feedsAbi, DEFAULT_FEEDS, type FeedDefinition, type FeedInfo } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { useSession, relay, deployment } from "@/lib/session";
@@ -33,6 +34,15 @@ export default function Feeds() {
   const load = () => relay.feeds().then(setFeeds).catch((e) => setErr(errMsg(e)));
   useEffect(() => {
     load();
+    // "Publish to marketplace" from an AI-built feed on Home lands here with the definition prefilled
+    try {
+      const draft = sessionStorage.getItem(FEED_DRAFT_KEY);
+      if (draft && new URLSearchParams(location.search).has("draft")) {
+        setJson(JSON.stringify(JSON.parse(draft), null, 2));
+        setCreating(true);
+        sessionStorage.removeItem(FEED_DRAFT_KEY);
+      }
+    } catch {}
   }, []);
 
   let parsed: FeedDefinition | null = null;

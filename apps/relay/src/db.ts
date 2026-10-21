@@ -208,6 +208,8 @@ CREATE TABLE IF NOT EXISTS chat (
 );
 CREATE INDEX IF NOT EXISTS chat_room ON chat(community, room, ts);
 
+CREATE TABLE IF NOT EXISTS ai_labeled (hash TEXT PRIMARY KEY, ts INTEGER NOT NULL);
+
 CREATE TABLE IF NOT EXISTS labels (
   target TEXT NOT NULL,
   labeler INTEGER NOT NULL,

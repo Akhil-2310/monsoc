@@ -23,7 +23,7 @@ import {
   type RelationBody,
 } from "@monsoc/sdk";
 import { config } from "./config";
-import { get, run, tx } from "./db";
+import { get, kvGet, run, tx } from "./db";
 import { publicClient, deployment } from "./chain";
 
 export const bus = new EventEmitter();
@@ -364,6 +364,12 @@ function apply(msg: SignedMessage) {
       for (const l of b.labels as string[]) {
         if (b.neg) run("DELETE FROM labels WHERE target = ? AND labeler = ? AND label = ?", b.target, fid, l);
         else run("INSERT OR IGNORE INTO labels(target, labeler, label, ts) VALUES(?,?,?,?)", b.target, fid, l, ts);
+        // the default labeler's topic labels also index the post under that topic (topic feeds query post_tags)
+        if (l.startsWith("topic:") && fid === Number(kvGet("labeler.fid") ?? 0)) {
+          const tag = l.slice(6).replace(/[^a-z0-9_]/g, "");
+          if (b.neg) run("DELETE FROM post_tags WHERE hash = ? AND tag = ? AND hash NOT IN (SELECT hash FROM posts WHERE tags LIKE ?)", b.target, tag, `%"${tag}"%`);
+          else if (tag) run("INSERT OR IGNORE INTO post_tags(hash, tag) VALUES(?,?)", b.target, tag);
+        }
       }
       break;
   }

@@ -6,6 +6,7 @@ import { startIndexer } from "./indexer";
 import { startAnchoring } from "./anchor";
 import { startJobs } from "./jobs";
 import { startKeeper } from "./markets";
+import { startAiLabeler } from "./ai";
 import { privateKeyToAccount } from "viem/accounts";
 import { appKeysAbi } from "@monsoc/sdk";
 import { publicClient } from "./chain";
@@ -29,6 +30,7 @@ startIndexer();
 startAnchoring();
 startJobs();
 startKeeper();
+startAiLabeler();
 
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`[relay] listening on ${config.publicUrl}`);

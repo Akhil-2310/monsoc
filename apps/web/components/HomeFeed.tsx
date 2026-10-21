@@ -1,12 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FeedInfo, Profile } from "@monsoc/sdk";
 import { Shell, PageHeader } from "@/components/Shell";
 import { FeedView } from "@/components/FeedView";
 import { Composer } from "@/components/Composer";
+import { AskFeed, aiFeedInfo, loadSavedAiFeeds, saveAiFeeds, type AiFeed } from "@/components/AskFeed";
 import { Avatar } from "@/components/Avatar";
-import { Check, ChevronDown, Gem, Plus, SlidersHorizontal, TrendingUp, UserPlus, Zap } from "lucide-react";
+import { Check, ChevronDown, Gem, Plus, SlidersHorizontal, Sparkles, TrendingUp, UserPlus, X, Zap } from "lucide-react";
 import { useRef } from "react";
 import { useSession, relay } from "@/lib/session";
 import { BUILTIN_FEEDS, isTopicFeed, STYLE_KEY, TOPIC_KEY } from "@/lib/feeds";
@@ -22,6 +23,9 @@ export function HomeFeed() {
   const [styleId, setStyleId] = useState<number | null>(null); // ranking behind "For you"
   const [topicId, setTopicId] = useState<number | null>(null); // null = "For you"
   const [reload, setReload] = useState(0);
+  const [ai, setAi] = useState<AiFeed | null>(null); // a feed built from a sentence (overrides pills)
+  const [savedAi, setSavedAi] = useState<AiFeed[]>([]);
+  useEffect(() => setSavedAi(loadSavedAiFeeds()), []);
 
   useEffect(() => {
     relay
@@ -41,9 +45,24 @@ export function HomeFeed() {
   const topics = feeds?.filter(isTopicFeed) ?? [];
   const styles = feeds?.filter((f) => !isTopicFeed(f)) ?? [];
   const style = styles.find((f) => f.id === styleId);
-  const feed = topicId ? topics.find((f) => f.id === topicId) : style;
+  const aiInfo = useMemo(() => (ai ? aiFeedInfo(ai) : null), [ai]);
+  const feed = aiInfo ?? (topicId ? topics.find((f) => f.id === topicId) : style);
+  const aiSaved = !!ai && savedAi.some((f) => f.id === ai.id && f.spec.summary === ai.spec.summary);
+  const saveAi = () => {
+    if (!ai) return;
+    const next = [ai, ...savedAi.filter((f) => f.id !== ai.id)];
+    setSavedAi(next);
+    saveAiFeeds(next);
+  };
+  const removeSavedAi = (id: string) => {
+    const next = savedAi.filter((f) => f.id !== id);
+    setSavedAi(next);
+    saveAiFeeds(next);
+    if (ai?.id === id) setAi(null);
+  };
 
   const pickTopic = (id: number | null) => {
+    setAi(null);
     setTopicId(id);
     id ? localStorage.setItem(TOPIC_KEY, String(id)) : localStorage.removeItem(TOPIC_KEY);
   };
@@ -57,23 +76,34 @@ export function HomeFeed() {
     <Shell aside={<HomeAside />}>
       <PageHeader
         title={fid ? "Home" : "Explore"}
-        sub={feed ? (topicId ? `${feed.name} · ${feed.description}` : `For you · ranked by ${style?.name ?? "default"}`) : cfg.tagline}
+        sub={feed ? (ai ? `${feed.name} · built from your words` : topicId ? `${feed.name} · ${feed.description}` : `For you · ranked by ${style?.name ?? "default"}`) : cfg.tagline}
         right={styles.length > 1 && <RankingMenu styles={styles} value={styleId} onChange={pickStyle} />}
       />
       {/* "For you" + topic feeds; ranking styles live in the menu above (and in communities) */}
       <div className="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2.5 [scrollbar-width:none]">
-        <button onClick={() => pickTopic(null)} className={`tab ${topicId === null ? "tab-on" : ""}`}>
+        <button onClick={() => pickTopic(null)} className={`tab ${topicId === null && !ai ? "tab-on" : ""}`}>
           For you
         </button>
+        {savedAi.map((f) => (
+          <span key={f.id} className={`tab group flex items-center gap-1 pr-2 ${ai?.id === f.id ? "tab-on" : ""}`}>
+            <button className="flex items-center gap-1" onClick={() => setAi(f)} title={f.spec.summary}>
+              <Sparkles size={12} /> {f.definition.name}
+            </button>
+            <button className="opacity-50 hover:opacity-100" onClick={() => removeSavedAi(f.id)} aria-label={`Remove ${f.definition.name}`}>
+              <X size={12} />
+            </button>
+          </span>
+        ))}
         {topics.map((f) => (
-          <button key={f.id} onClick={() => pickTopic(f.id)} className={`tab ${f.id === topicId ? "tab-on" : ""}`} title={f.description}>
+          <button key={f.id} onClick={() => pickTopic(f.id)} className={`tab ${f.id === topicId && !ai ? "tab-on" : ""}`} title={f.description}>
             {f.name}
             {f.priceUsd > 0 && <span className="ml-1 text-[10px] text-warn">{usd(f.priceUsd)}</span>}
           </button>
         ))}
         <Link href="/feeds" className="tab flex items-center gap-1"><Plus size={14} /> Browse</Link>
       </div>
-      <Composer onPosted={() => setReload((r) => r + 1)} />
+      <AskFeed active={ai} saved={aiSaved} onResult={setAi} onClear={() => setAi(null)} onSave={saveAi} />
+      {!ai && <Composer onPosted={() => setReload((r) => r + 1)} />}
       {feed && <FeedView feed={feed} reloadKey={reload} showMarkets />}
     </Shell>
   );

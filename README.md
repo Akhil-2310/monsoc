@@ -28,7 +28,8 @@ Monsoc is a small, neutral protocol on Monad plus an open-source default client 
 5. **Scouts.** Tap **Back** on creators you discover early. Your scout score grows as they do, counted only in reputable, verified followers, with caps so spraying backs doesn't pay. Score roots are posted onchain so anyone can recompute them.
 6. **Milestone markets.** "Will @nova hit 1,000 followers by Friday?" Creators opt in and earn 1% of the losing pool. Early stakes count up to 2x. The contract settles itself by reading the follow graph, with no oracle and no admin, and only accounts that existed when the market opened count, so new fake accounts can't swing it.
 7. **Communities and real money.** Open, token-gated, invite-only or paid communities with onchain roles and bans, live chat and their own ranking. Prices are in dollars, paid in a stablecoin or MON. Paid feeds share revenue with the creators they actually surfaced, attributed from views signed by each subscriber's own key.
-8. **Verifiable by default.** Posts, likes and profiles are free signed messages. The relay anchors a Merkle root of every batch on Monad, every post has a "Verify onchain" button, and media carries the SHA-256 of the original file.
+8. **AI that writes rules, not posts.** Type "real conversations about AI this week" and Claude turns it into a feed recipe that the normal engine runs, so every result is a real post and the recipe can be saved or published onchain. A Claude-powered labeler also tags each post with its topics (and flags spam or bait) as signed labels from the default labeler, so topic feeds catch posts without hashtags.
+9. **Verifiable by default.** Posts, likes and profiles are free signed messages. The relay anchors a Merkle root of every batch on Monad, every post has a "Verify onchain" button, and media carries the SHA-256 of the original file.
 
 **Why it's useful.** Creators get an audience they own and a fair shot at discovery. Fans choose their own feeds and get a provable stake in spotting talent early. Communities set their own rules, enforced onchain. Developers can fork the client and launch a niche app with a real network on day one.
 
@@ -76,6 +77,7 @@ contracts       Foundry: identity, app keys, signup, follows, feeds, payments, a
 | Reputation, scout scores, trial auto-release, epoch payouts | `apps/relay/src/jobs.ts`, `packages/sdk/src/scout.ts`, `payout.ts` |
 | Wallet-seeded onboarding and starter packs | `GET /v1/onboarding/:address` |
 | Example hosted feed | `GET /hosted/high-signal` |
+| AI topic labeler and natural-language feed builder (Claude Opus 5.5) | `apps/relay/src/ai.ts`, `apps/web/components/AskFeed.tsx` |
 
 ## Deployed contracts (Monad testnet)
 
