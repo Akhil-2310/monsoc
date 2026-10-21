@@ -41,6 +41,7 @@ ${TOPIC_GUIDE}
 
 For each post, return:
 - topics: 0-3 topic ids the post is clearly about. Judge by meaning, not just keywords ("what a finish to the match last night" is sports). Leave empty for small talk or anything that fits no topic.
+- subjects: 0-3 specific subjects narrower than a topic, as single lowercase words (cricket, f1, football, ethereum, monad, llm). Only subjects the post is clearly about.
 - flags: any of spam, scam (phishing, "connect wallet to claim", asks for seed phrases or keys), engagement-bait ("like if…", "follow for follow", "comment YES"), giveaway. Leave empty for normal posts.
 
 Be conservative with flags: only flag what clearly matches.`;
@@ -50,6 +51,7 @@ const LabelResults = z.object({
     z.object({
       id: z.number().int(),
       topics: z.array(z.enum(TOPIC_IDS)),
+      subjects: z.array(z.string()),
       flags: z.array(z.enum(FLAGS)),
     }),
   ),
@@ -88,7 +90,12 @@ export async function labelBatch(): Promise<number> {
       for (const r of res.parsed_output.results) {
         const row = rows[r.id];
         if (!row) continue;
-        const labels = [...new Set(r.topics)].slice(0, 3).map((t) => `topic:${t}`).concat([...new Set(r.flags)]);
+        const subjects = [...new Set(r.subjects.map((x) => x.toLowerCase().replace(/[^a-z0-9_]/g, "")).filter((x) => x && x.length <= 24))];
+        const labels = [
+          ...[...new Set(r.topics)].slice(0, 3).map((t) => `topic:${t}`),
+          ...subjects.slice(0, 3).map((t) => `tag:${t}`),
+          ...new Set(r.flags),
+        ];
         if (labels.length) await publishLabels(row.hash, labels);
       }
     }
@@ -125,7 +132,7 @@ const FeedSpec = z.object({
   name: z.string().describe("Short feed name, 1-4 words, e.g. 'Cricket & F1'"),
   summary: z.string().describe("One line shown to the user, e.g. 'Sports · this week · conversations first'"),
   topics: z.array(z.enum(TOPIC_IDS)).describe("Topic ids to include; empty means all topics"),
-  tags: z.array(z.string()).describe("Extra lowercase hashtags without #, for subjects narrower than a topic, e.g. cricket, f1"),
+  tags: z.array(z.string()).describe("Specific subjects narrower than a topic, lowercase without #, e.g. cricket, f1. When set, only these subjects are shown"),
   excludeTags: z.array(z.string()).describe("Lowercase hashtags without # to hide, e.g. memes"),
   audience: z.enum(["everyone", "following"]).describe("'following' only when they ask for people they follow"),
   moreNewCreators: z.boolean().describe("True if they want new creators or people they don't follow yet"),
@@ -143,7 +150,7 @@ Topics (use only these ids):
 ${TOPIC_GUIDE}
 
 Guidance:
-- Map subjects to topic ids. If they name something narrower (cricket, F1, a team, "monad"), add it to tags too, and still include the parent topic.
+- Map subjects to topic ids. If they name something narrower (cricket, F1, a team, "monad"), put those in tags as single lowercase words (and still set the parent topic): the feed then shows only those subjects. Leave tags empty for a whole topic ("sports").
 - "From people I follow" means audience=following. "New people", "people I don't follow", "discover" means moreNewCreators=true.
 - "Real conversations", "discussions" means ranking=conversations. "Trending", "popular" means popular. "Latest", "newest" means latest.
 - "Today" means freshness=today, "this week" or "recent" means this_week.
@@ -153,8 +160,9 @@ Guidance:
 /** Turn a feed spec into the protocol's FeedDefinition (deterministic, always valid). */
 export function specToDefinition(s: FeedSpec): FeedDefinition {
   const clean = (xs: string[]) => [...new Set(xs.map((x) => x.toLowerCase().replace(/^#/, "").replace(/[^a-z0-9_]/g, "")).filter(Boolean))].slice(0, 20);
+  // named subjects narrow the feed to just those; otherwise include every tag of the chosen topics
   const topicTags = s.topics.flatMap((id) => [id, ...(TOPICS.find((t) => t.id === id)?.tags ?? [])]);
-  const include = clean([...topicTags, ...s.tags]);
+  const include = s.tags.length ? clean(s.tags) : clean(topicTags);
   const weights = {
     balanced: { likes: 1, replies: 2, reposts: 1, conversationDepth: 1, reputation: 0.3 },
     conversations: { likes: 0.5, replies: 4, reposts: 0.5, conversationDepth: 3, reputation: 0.3 },

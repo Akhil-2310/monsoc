@@ -63,6 +63,8 @@ interface PostRow {
 }
 
 const labelsOf = (r: PostRow) => (r.label_list ? r.label_list.split(",") : []);
+/** topic:/tag: labels from the AI labeler are indexing, shown as tags rather than warning chips */
+const isTagLabel = (l: string) => l.startsWith("topic:") || l.startsWith("tag:");
 
 function toView(r: PostRow, viewer: number): PostView {
   return {
@@ -74,13 +76,13 @@ function toView(r: PostRow, viewer: number): PostView {
     type: r.type,
     timestamp: r.ts,
     text: r.text,
-    tags: [...new Set([...(JSON.parse(r.tags) as string[]), ...labelsOf(r).filter((l) => l.startsWith("topic:")).map((l) => l.slice(6))])],
+    tags: [...new Set([...(JSON.parse(r.tags) as string[]), ...labelsOf(r).filter(isTagLabel).map((l) => l.slice(l.indexOf(":") + 1))])],
     links: JSON.parse(r.links),
     media: JSON.parse(r.media),
     community: r.community,
     parent: r.parent,
     market: r.market ?? null,
-    labels: labelsOf(r).filter((l) => !l.startsWith("topic:")),
+    labels: labelsOf(r).filter((l) => !isTagLabel(l)),
     trial: r.trial ? { ...JSON.parse(r.trial), status: r.trial_status } : null,
     stats: {
       likes: r.likes,
